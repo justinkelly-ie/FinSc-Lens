@@ -1,39 +1,34 @@
 # FinSc-Lens
 
-**Non-perturbing external horizons, initial probe configurations, quenched `TopologicalRelic` skeletons, and readout audits over [`Finite-Science`](https://github.com/justinkelly-ie/Finite-Science) and [`FinSc-Box`](https://github.com/justinkelly-ie/FinSc-Box).**
+**Pure installable Layer-3 observer library providing non-perturbing horizons, initial probe configurations, quenched `TopologicalRelic` skeletons, and readout reductions over [`FinSc-Dynamics`](https://github.com/justinkelly-ie/FinSc-Dynamics) and [`FinSc-Box`](https://github.com/justinkelly-ie/FinSc-Box).**
 
-`FinSc-Lens` implements **Layer 3 (Observation & Readouts)** of the three-layer architecture:
+`FinSc-Lens` sits at **Layer 3** alongside peer observer libraries (such as `FinSc-Dihedron`), consumed at the top of the stack by [`Finite-Science`](https://github.com/justinkelly-ie/Finite-Science):
 
-1. **`FinSc-Box` (Core Ontology):** `HereditaryMSet`, `[⬛, 🟥] = []`, `Maxel`, `GohFuel`, `QuadraticExchange`, `Views`, `BlackRedZoom`, and `Lenses`.
-2. **`Finite-Science` (Blind Local Dynamics):** `Configuration`, `EvolutionState`, `PolarityMaxel`, `QuadranceMaxel`, `loadMaxel`, `throttleMaxel`, `FlatBlackBox`, and `HereditaryBlackBox` — evolving locally with zero observer knowledge.
-3. **`FinSc-Lens` (Observation & Readouts):**
-   - [`Horizons.idr`](src/FinScLens/Horizons.idr) — Observer `Time` / UV cutoffs (`HorizonSpec`, `coarseHorizonSpec`, `deepUVHorizonSpec`), initial probe configurations (`photonMSet`, `protonMSet`, `neutronMSet`, `heavyMassMSet`), quenched `TopologicalRelic` (`quenchRelic = MSetSupport`), and `Control.App` boundary guards.
-   - [`Measurements.idr`](src/FinScLens/Measurements.idr) — External spatial moment, band-flux, core-quadrance, and load-quadrupole readouts (`ExcitationReport`, `SelfTrapReport`, `TwoBodyReport`, `CausalLightConeReport`, `AnisotropicStressReport`) plus all 6 automated audits (`runAudit1..6`).
+```text
+                FinSc-Box               (Layer 1: Core Multiset & Maxel Algebra)
+                    │
+                    ▼
+             FinSc-Dynamics             (Layer 2: Blind Local Evolution — App1, NoThrow)
+               ╱         ╲
+              ▼           ▼
+        FinSc-Lens     FinSc-Dihedron   (Layer 3: Independent Non-Perturbing Observers)
+              ╲           ╱
+               ▼         ▼
+             Finite-Science             (Layer 4: Top-of-Stack Lab, Audits & Visualizer)
+```
 
-*(Rational `SO(3; Q)` projective rotation proportions and `SL(2; Q)` Dihedron frames live separately in `FinSc-Dihedron` for relativistic observer development.)*
+## Modules
 
----
+- [`Horizons.idr`](src/FinScLens/Horizons.idr) — Observer `Time` / UV cutoffs (`HorizonSpec`, `coarseHorizonSpec`, `deepUVHorizonSpec`), initial probe configurations (`photonMSet`, `protonMSet`, `neutronMSet`, `heavyMassMSet`), quenched `TopologicalRelic` (`quenchRelic = MSetSupport`), Goh spread stream freeze-out, and `Control.App` boundary guards.
+- [`Measurements.idr`](src/FinScLens/Measurements.idr) — Readout records (`ExcitationReport`, `SelfTrapReport`, `TwoBodyReport`, `CausalLightConeReport`, `AnisotropicStressReport`) and external spatial moment, band-flux, core-quadrance, and load-quadrupole reductions (`measureBandAxis`, `fieldCoreQuadranceFrac`, `bandsEqualInBox`, `loadQuadrupolePlus`).
 
-## Building & Running the Audit Suite
-
-Ensure both `FinSc-Box` and `Finite-Science` are built and installed first:
+## Building & Installing
 
 ```bash
 cd FinSc-Box && idris2 --build FinSc-Box.ipkg && idris2 --install FinSc-Box.ipkg
-cd ../Finite-Science && idris2 --build Finite-Science.ipkg && idris2 --install Finite-Science.ipkg
-cd ../FinSc-Lens
-idris2 --build FinSc-Lens.ipkg
-./build/exec/finsc-lens-audits
+cd ../FinSc-Dynamics && idris2 --build FinSc-Dynamics.ipkg && idris2 --install FinSc-Dynamics.ipkg
+cd ../FinSc-Lens && idris2 --build FinSc-Lens.ipkg && idris2 --install FinSc-Lens.ipkg
 ```
-
-A passing run prints all 6 audit reports, writes `audit_trace.txt` (git-ignored), and concludes with:
-
-```text
-ALL 6 FINSC-LENS AUDITS PASSED (Blind Dynamics + External Lenses + TopologicalRelic)
-Boundary telemetry written to audit_trace.txt: True
-```
-
----
 
 ## License
 

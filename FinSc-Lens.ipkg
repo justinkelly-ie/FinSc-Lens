@@ -1,19 +1,15 @@
 package FinSc-Lens
-version = 0.1.0
+version = 0.2.0
 authors = "Justin"
-brief   = "FinSc-Lens: Non-Perturbing Horizons, Probes, Topological Relics & Readout Audits"
+brief   = "FinSc-Lens: Non-Perturbing Horizons, Probes, Topological Relics & Readout Library"
 
 depends = base >= 0.8.0
         , linear
         , FinSc-Box
-        , Finite-Science
+        , FinSc-Dynamics
 
 sourcedir = "src"
 
 modules = FinScLens.Horizons
         , FinScLens.Measurements
         , FinScLens
-        , Main
-
-main       = Main
-executable = "finsc-lens-audits"

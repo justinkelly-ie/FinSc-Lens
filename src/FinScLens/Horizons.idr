@@ -11,7 +11,7 @@ import FinScBox.Lenses
 import FinScBox.QuadraticExchange
 import FinScBox.MultisetCodec
 import FinScBox.BlackRedZoom
-import FiniteScience
+import FinScDynamics
 
 %default total
 
