@@ -1,0 +1,12 @@
+# Idris 2 build artifacts & compiled interface caches (.ttc / .ttm)
+build/
+*.ibc
+*.ttc
+*.ttm
+
+# Local package / session artifacts & audit telemetry traces
+.idris2/
+audit_trace.txt
+experiment_trace.txt
+*~
+.DS_Store
