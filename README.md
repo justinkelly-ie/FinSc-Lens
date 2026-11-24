@@ -19,7 +19,7 @@
 
 ## Modules
 
-- [`Horizons.idr`](src/FinScLens/Horizons.idr) — Observer `Time` / UV cutoffs (`HorizonSpec`, `coarseHorizonSpec`, `deepUVHorizonSpec`), initial probe configurations (`photonMSet`, `protonMSet`, `neutronMSet`, `heavyMassMSet`), quenched `TopologicalRelic` (`quenchRelic = MSetSupport`), Goh spread stream freeze-out, and `Control.App` boundary guards.
+- [`Horizons.idr`](src/FinScLens/Horizons.idr) — Observer `Time` / UV cutoffs (`HorizonSpec`, `coarseHorizonSpec`, `deepUVHorizonSpec`), `CloseOutcome` classification & `rootActivePeelWork`, initial probe configurations (`photonMSet`, `protonMSet`, `neutronMSet`, `heavyMassMSet`), quenched `TopologicalRelic` (`quenchRelic = MSetSupport`), Goh spread stream freeze-out, and `Dec` boundary validators.
 - [`Measurements.idr`](src/FinScLens/Measurements.idr) — Readout records (`ExcitationReport`, `SelfTrapReport`, `TwoBodyReport`, `CausalLightConeReport`, `AnisotropicStressReport`) and external spatial moment, band-flux, core-quadrance, and load-quadrupole reductions (`measureBandAxis`, `fieldCoreQuadranceFrac`, `bandsEqualInBox`, `loadQuadrupolePlus`).
 
 ## Building & Installing

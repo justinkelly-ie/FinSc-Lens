@@ -2,12 +2,12 @@ module FinScLens.Horizons
 
 import Control.App
 import Data.DPair
+import Data.Maybe
 import FinScBox.BoxInt
 import FinScBox.Interfaces
 import FinScBox.Box
 import FinScBox.HereditaryMSet
 import FinScBox.Views
-import FinScBox.Lenses
 import FinScBox.QuadraticExchange
 import FinScBox.MultisetCodec
 import FinScBox.BlackRedZoom
@@ -16,10 +16,10 @@ import FinScDynamics
 %default total
 
 --------------------------------------------------------------------------------
--- 1. TOPOLOGICAL RELICS, HORIZON SPECS & BOUNDARY EXCEPTIONS
+-- 1. TOPOLOGICAL RELICS, CLOSE OUTCOMES, HORIZON SPECS & BOUNDARY EXCEPTIONS
 --------------------------------------------------------------------------------
 
-||| Quenched unit-weight matter skeleton observed after `GohFuel` exhaustion.
+||| Quenched unit-weight skeleton observed after `GohFuel` exhaustion.
 public export
 TopologicalRelic : Type
 TopologicalRelic = Configuration
@@ -29,10 +29,77 @@ public export
 quenchRelic : Configuration -> TopologicalRelic
 quenchRelic = MSetSupport
 
-||| External observation horizon (`Observer = Time` cutoff + UV zoom depth):
-||| - `boundTime`  : Bounded compute horizon (`BoundedTime cap` or `WindowedTime win`)
-||| - `retroDepth` : Retrograde UV zoom depth (`RetroTime g`)
-||| - `budgetCap`  : Total stream-work fuel budget available before freeze-out
+||| Concise textual rendering of a `Time` horizon tag.
+public export
+showTime : Time -> String
+showTime (StaticTime l h)  = "StaticTime(" ++ show l ++ ", " ++ show h ++ ")"
+showTime (BoundedTime c)   = "BoundedTime(" ++ show c ++ ")"
+showTime (RetroTime g)     = "RetroTime(" ++ show g ++ ")"
+showTime (WindowedTime w)  = "WindowedTime(" ++ show w ++ ")"
+showTime OpenFuture        = "OpenFuture"
+showTime BilateralTime     = "BilateralTime"
+
+||| Observer classification of a quenched final state after closing an `App1` universe handle.
+public export
+data CloseOutcome : Type where
+  ||| All opposing polarities annihilated back to the 0D vacuum root `[]`.
+  CleanVacuumCollapse : CloseOutcome
+  ||| System froze at a static relic with exact global signed multiplicity sum and active work.
+  FrozenAtHorizon     : (staticTime : Time) -> (canonicalText : String) -> (workSteps : Nat) -> (globalNetSum : Integer) -> CloseOutcome
+
+public export
+Show CloseOutcome where
+  show CleanVacuumCollapse = "CleanVacuumCollapse([])"
+  show (FrozenAtHorizon t txt work net) =
+    "FrozenAtHorizon(time=" ++ showTime t ++ ", work=" ++ show work ++ ", net=" ++ show net ++ ", text=" ++ txt ++ ")"
+
+public export
+closeNetSum : CloseOutcome -> Integer
+closeNetSum CleanVacuumCollapse       = 0
+closeNetSum (FrozenAtHorizon _ _ _ g) = g
+
+public export
+closeOutcomeText : CloseOutcome -> String
+closeOutcomeText CleanVacuumCollapse         = "[]"
+closeOutcomeText (FrozenAtHorizon _ txt _ _) = txt
+
+||| Counts active streaming peel work on `root : Configuration`:
+||| causal load dipoles and throttle dipoles charge ONLY their outer boundary quanta (`1` per pole).
+public export
+rootActivePeelWork : Configuration -> Nat
+rootActivePeelWork (MkHMSet b) =
+  foldBox (\k, w, acc =>
+             let mag = weightMagnitude w
+             in if isJust (unpackLoadKey k) || isJust (unpackThrottleKey k)
+                  then acc + mag
+                  else acc + mag * S (fastPeelWorkHMSet k))
+          0 b
+
+||| Classifies a closed `EvolutionState k` into a `CloseOutcome`.
+public export
+classifyFlatClose : Ord k => EvolutionState k -> CloseOutcome
+classifyFlatClose state =
+  if isEmptyMaxel state.polarityMaxel &&
+     isEmptyMaxel state.loadMaxel && isEmptyMaxel state.throttleMaxel
+    then CleanVacuumCollapse
+    else let work = stateActiveWork state
+             net  = statePolarityNet state + stateFluxNet state
+             stT  = StaticTime 0 (cast work)
+         in FrozenAtHorizon stT ("FlatSparse(" ++ show work ++ " active)") work net
+
+||| Classifies a closed hereditary `Configuration` into a `CloseOutcome`.
+public export
+classifyHereditaryClose : Configuration -> CloseOutcome
+classifyHereditaryClose root =
+  if root == emptyPureMSet
+    then CleanVacuumCollapse
+    else let work = rootActivePeelWork root
+             net  = unwrapBox (sumHMSet root)
+             txt  = renderPureMultiset root
+             stT  = StaticTime 0 (cast work)
+         in FrozenAtHorizon stT txt work net
+
+||| External observation horizon (`Observer = Time` cutoff + UV zoom depth).
 public export
 record HorizonSpec where
   constructor MkHorizonSpec
@@ -230,89 +297,7 @@ freezeGohSpreadStream n =
   in (relic.relicState, gohSteps yFuel, relic.yieldsConsumed, relic.stepsConsumed, relic.freezeReason)
 
 --------------------------------------------------------------------------------
--- 4. OUTER `App` BOUNDARY GUARDS & EXTERNAL HORIZON PROBE RUNNERS
---------------------------------------------------------------------------------
-
-export
-runFlatGuardedSplitBoundary :
-  Has [Exception UniverseErr] e =>
-  String -> Integer -> Integer -> App e CloseOutcome
-runFlatGuardedSplitBoundary settingTxt wA wB = do
-  _ <- validateAndDecodeSetting settingTxt
-  requireBalancedSplit wA wB
-  app1 $ App1.do
-    u0 <- bootFlat0D
-    u1 <- splitFlatFromVacuum (5, 0, 0) (5, 0, 0) (intToBoxInt wA) u0
-    closeFlat0D u1
-
-export
-runFlatHorizonProbe :
-  Has [Exception UniverseErr] e =>
-  HorizonSpec -> App e HorizonObservationReport
-runFlatHorizonProbe spec = do
-  rep <- app1 $ App1.do
-    u0 <- bootFlat0D
-    u1 <- splitFlatFromVacuum (5, 0, 0) (30, 30, 0) (intToBoxInt 14) u0
-    obs <- observeFlatDirect
-             (\st =>
-                let p50          = mkCoord2D coord2Basis 5 0
-                    baseWork     = weightMagnitude (lookupMaxel p50 p50 st.polarityMaxel)
-                    workPerCycle = if baseWork == 0 then 0 else baseWork + 2 * spec.retroDepth
-                in observeHorizonFreeze spec workPerCycle)
-             u1
-    let MkPureObs u2 rep _ = obs
-    _ <- closeFlat0D u2
-    App1.pure rep
-  case rep.freezeReason of
-    YieldExhausted =>
-      throw (HorizonFrozenError rep.horizonTime rep.freezeReason rep.cyclesCompleted)
-    StepHorizonReached =>
-      throw (HorizonFrozenError rep.horizonTime rep.freezeReason rep.cyclesCompleted)
-    NaturalCompletion =>
-      pure rep
-
-export
-runHereditaryGuardedSplitBoundary :
-  Has [Exception UniverseErr] e =>
-  String -> Integer -> Integer -> App e CloseOutcome
-runHereditaryGuardedSplitBoundary settingTxt wA wB = do
-  payload <- validateAndDecodeSetting settingTxt
-  requireBalancedSplit wA wB
-  app1 $ App1.do
-    u0 <- bootHereditary0D
-    u1 <- splitHereditaryFromVacuum (5, 0, 0) (5, 0, 0) payload u0
-    closeHereditary0D u1
-
-export
-runHereditaryHorizonProbe :
-  Has [Exception UniverseErr] e =>
-  HorizonSpec -> Configuration -> App e HorizonObservationReport
-runHereditaryHorizonProbe spec crossingPayload = do
-  rep <- app1 $ App1.do
-    u0 <- bootHereditary0D
-    u1 <- splitHereditaryFromVacuum (5, 0, 0) (30, 30, 0) crossingPayload u0
-    let lens = zoomedExternalLens
-                 (findMatterPayloadAt (5, 0, 0))
-                 (blackShift spec.retroDepth)
-                 zeroShift
-                 spec.boundTime
-                 (\zoomed =>
-                    let workPerCycle = (streamPeelWorkHMSet zoomed).workSteps
-                    in observeHorizonFreeze spec workPerCycle)
-    obs <- observeHereditaryPure lens u1
-    let MkPureObs u2 rep _ = obs
-    _ <- closeHereditary0D u2
-    App1.pure rep
-  case rep.freezeReason of
-    YieldExhausted =>
-      throw (HorizonFrozenError rep.horizonTime rep.freezeReason rep.cyclesCompleted)
-    StepHorizonReached =>
-      throw (HorizonFrozenError rep.horizonTime rep.freezeReason rep.cyclesCompleted)
-    NaturalCompletion =>
-      pure rep
-
---------------------------------------------------------------------------------
--- 5. COMPILE-TIME QTT 0 PROBE, CODEC & GOH SPREAD THEOREMS
+-- 4. COMPILE-TIME QTT 0 PROBE, CODEC & GOH SPREAD THEOREMS
 --------------------------------------------------------------------------------
 
 public export
@@ -334,14 +319,15 @@ public export
 prfQuenchRelicIdempotent = Refl
 
 public export
-0 prfLoadThrottleMatterRoundTrips :
-  (let kL = mkLoadKey FinScLens.Horizons.photonMSet
-       kT = mkThrottleKey FinScLens.Horizons.photonMSet
-       kM = mkMatterKey (natSiteKey (8, 7, 0)) FinScLens.Horizons.protonMSet
+0 prfLoadThrottleLocalizedRoundTrips :
+  (let pos = mkPureCoord3D (-8) 7 (-3)
+       kL  = mkLoadKey FinScLens.Horizons.photonMSet
+       kT  = mkThrottleKey FinScLens.Horizons.photonMSet
+       kM  = mkLocalizedKey pos FinScLens.Horizons.protonMSet
    in (unpackLoadKey kL == Just FinScLens.Horizons.photonMSet) &&
       (unpackThrottleKey kT == Just FinScLens.Horizons.photonMSet) &&
-      (unpackMatterKey kM == Just (natSiteKey (8, 7, 0), FinScLens.Horizons.protonMSet))) = True
-prfLoadThrottleMatterRoundTrips = Refl
+      (lookupLocalizedAt pos (MkHMSet (singletonBox kM (MkBoxInt 1))) == FinScLens.Horizons.protonMSet)) = True
+prfLoadThrottleLocalizedRoundTrips = Refl
 
 public export
 0 prfStreamWorkMonotonic :
