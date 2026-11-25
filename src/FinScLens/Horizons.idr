@@ -19,15 +19,20 @@ import FinScDynamics
 -- 1. TOPOLOGICAL RELICS, CLOSE OUTCOMES, HORIZON SPECS & BOUNDARY EXCEPTIONS
 --------------------------------------------------------------------------------
 
-||| Quenched unit-weight skeleton observed after `GohFuel` exhaustion.
+||| Quenched unsigned `MultisetBit` skeleton observed after `GohFuel` exhaustion.
 public export
 TopologicalRelic : Type
-TopologicalRelic = Configuration
+TopologicalRelic = HereditaryMSet MultisetBit
 
-||| Strips signed multiplicities down to the unit-weight `TopologicalRelic` skeleton (`MSetSupport`).
+||| Strips signed multiplicities down to the unsigned `TopologicalRelic` skeleton (`castSupportHMSet`).
 public export
 quenchRelic : Configuration -> TopologicalRelic
-quenchRelic = MSetSupport
+quenchRelic = castSupportHMSet
+
+||| Embeds an unsigned `TopologicalRelic` skeleton back into a unit-weight `Configuration`.
+public export
+embedRelic : TopologicalRelic -> Configuration
+embedRelic = castSupportHMSet
 
 ||| Concise textual rendering of a `Time` horizon tag.
 public export
@@ -168,8 +173,7 @@ observeHorizonFreeze spec workPerCycle =
   let (relic, _) =
         freezeStateStreamWith
           spec.retroDepth
-          spec.budgetCap
-          (MkGohFuel spec.budgetCap)
+          (MkGohFuel {capacity = spec.budgetCap} spec.budgetCap)
           20
           (\u => if workPerCycle == 0 then (StreamSkip, 0, 1) else (StreamYield u, workPerCycle, 0))
           ()
@@ -191,9 +195,7 @@ vacuumMSet = emptyHMSet
 ||| Canonical 1D photon dipole `A_1 = alpha^{+1} - alpha^{-1}`.
 public export
 photonMSet : Configuration
-photonMSet =
-  subHMSet (MkHMSet (singletonBox (scalarKeyHMSet 1) (MkBoxInt 1)))
-           (MkHMSet (singletonBox (scalarKeyHMSet (-1)) (MkBoxInt 1)))
+photonMSet = wrapBox (scalarKeyHMSet 1) - wrapBox (scalarKeyHMSet (-1))
 
 ||| Canonical Proton triad `uud = (+2, +2, -1)` at axes `1, 2, 3`.
 public export
@@ -288,12 +290,12 @@ streamGohDivisorFactors n =
         then StreamYield (gohPsiFactor d)
         else StreamSkip)
 
-||| Freezes `streamGohDivisorFactors n` via Cauchy multiplication (`mulHMSet`) under `selfFuelOfHMSet (spreadZHMSet n)`.
+||| Freezes `streamGohDivisorFactors n` via Cauchy multiplication (`*`) under `selfFuelOfHMSet (spreadZHMSet n)`.
 public export
 freezeGohSpreadStream : (n : Nat) -> (Configuration, Nat, Nat, Nat, StreamFreezeReason)
 freezeGohSpreadStream n =
-  let (MkAnyGohFuel cap yFuel, sBudget) = selfFuelOfHMSet (spreadZHMSet n)
-      relic = freezeTimeStreamWith 0 cap yFuel sBudget mulHMSet 1 (streamGohDivisorFactors n)
+  let (MkAnyGohFuel _ yFuel, sBudget) = selfFuelOfHMSet (spreadZHMSet n)
+      relic = freezeTimeStreamWith 0 yFuel sBudget (*) 1 (streamGohDivisorFactors n)
   in (relic.relicState, gohSteps yFuel, relic.yieldsConsumed, relic.stepsConsumed, relic.freezeReason)
 
 --------------------------------------------------------------------------------
@@ -314,7 +316,9 @@ prfVacuumZeroStreamWork = Refl
 
 public export
 0 prfQuenchRelicIdempotent :
-  FinScLens.Horizons.quenchRelic (FinScLens.Horizons.quenchRelic FinScLens.Horizons.protonMSet)
+  FinScLens.Horizons.quenchRelic
+    (FinScLens.Horizons.embedRelic
+      (FinScLens.Horizons.quenchRelic FinScLens.Horizons.protonMSet))
   = FinScLens.Horizons.quenchRelic FinScLens.Horizons.protonMSet
 prfQuenchRelicIdempotent = Refl
 
@@ -326,7 +330,7 @@ public export
        kM  = mkLocalizedKey pos FinScLens.Horizons.protonMSet
    in (unpackLoadKey kL == Just FinScLens.Horizons.photonMSet) &&
       (unpackThrottleKey kT == Just FinScLens.Horizons.photonMSet) &&
-      (lookupLocalizedAt pos (MkHMSet (singletonBox kM (MkBoxInt 1))) == FinScLens.Horizons.protonMSet)) = True
+      (lookupLocalizedAt pos (wrapBox kM) == FinScLens.Horizons.protonMSet)) = True
 prfLoadThrottleLocalizedRoundTrips = Refl
 
 public export
@@ -360,12 +364,12 @@ prfAllSettingsParityAndDecode = Refl
 
 public export
 0 prfPythPowerMatchesSpreadZ28 :
-  (let (_, b1, r1) = FinScBox.QuadraticExchange.pythPowerTriple 1 (MkBoxInt 28)
-       (_, b2, _)  = FinScBox.QuadraticExchange.pythPowerTriple 2 (MkBoxInt 28)
-       (_, b3, _)  = FinScBox.QuadraticExchange.pythPowerTriple 3 (MkBoxInt 28)
-       (_, b4, _)  = FinScBox.QuadraticExchange.pythPowerTriple 4 (MkBoxInt 28)
-       num         = 4 * b1 * b1
-       den         = r1 * r1
+  (let MkQuadraticTriple _ b1 r1 = FinScBox.QuadraticExchange.pythPowerTriple 1 (MkBoxInt 28)
+       MkQuadraticTriple _ b2 _  = FinScBox.QuadraticExchange.pythPowerTriple 2 (MkBoxInt 28)
+       MkQuadraticTriple _ b3 _  = FinScBox.QuadraticExchange.pythPowerTriple 3 (MkBoxInt 28)
+       MkQuadraticTriple _ b4 _  = FinScBox.QuadraticExchange.pythPowerTriple 4 (MkBoxInt 28)
+       num                       = 4 * b1 * b1
+       den                       = r1 * r1
    in (evalHomogPolyHMSet 1 (spreadZHMSet 1) num den == 4 * b1 * b1) &&
       (evalHomogPolyHMSet 2 (spreadZHMSet 2) num den == 4 * b2 * b2) &&
       (evalHomogPolyHMSet 3 (spreadZHMSet 3) num den == 4 * b3 * b3) &&

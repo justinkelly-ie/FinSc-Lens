@@ -219,16 +219,16 @@ canonAnyLinkStart ax pol a b =
 public export
 fieldCoreQuadranceFrac : Ord k => AxisBasis k -> EvolutionState k -> Integer
 fieldCoreQuadranceFrac ax st =
-  let qBox = (quadranceOf st.polarityMaxel).rawMaxelBox
-      totQ = unwrapBox (totalMassBox qBox)
-      cBox = filterBox (\(a, b) =>
-                         if a == b
-                           then isCoreSite ax a
-                           else case canonAnyLinkStart ax st.polarityMaxel a b of
-                                  Just s  => isCoreSite ax s
-                                  Nothing => False)
-                       qBox
-      cTot = unwrapBox (totalMassBox cBox)
+  let qM   = quadranceOf st.polarityMaxel
+      totQ = unwrapBox (sumStoredMaxel qM)
+      cM   = filterMaxel (\a, b =>
+                           if a == b
+                             then isCoreSite ax a
+                             else case canonAnyLinkStart ax st.polarityMaxel a b of
+                                    Just s  => isCoreSite ax s
+                                    Nothing => False)
+                         qM
+      cTot = unwrapBox (sumStoredMaxel cM)
   in if totQ <= 0 then 0 else divIntegerPos (cTot * 100) totQ
 
 public export
@@ -239,22 +239,23 @@ extractBandPolarityAndFluxAxis :
   (tLo, tHi : Integer) ->
   PolarityMaxel k ->
   (Box BoxInt k, Box BoxInt (k, k))
-extractBandPolarityAndFluxAxis ax axisT tLo tHi (MkMaxel m) =
+extractBandPolarityAndFluxAxis ax axisT tLo tHi pol =
   let stepT = ax.axisStep axisT
-  in foldBox (\(a, b), w, (bp, df) =>
-                if a == b
-                  then let t = coordAlong ax axisT a
-                       in if t >= tLo && t <= tHi then (setBox a w bp, df) else (bp, df)
-                  else if b == ax.shiftAdd a stepT
-                    then (bp, setBox (a, b) w df)
-                    else if a == ax.shiftAdd b stepT
-                      then (bp, setBox (b, a) (negWeight w) df)
-                      else (bp, df))
-             (BoxLeaf, BoxLeaf) m
+  in foldStoredMaxel
+       (\a, b, w, (bp, df) =>
+          if a == b
+            then let t = coordAlong ax axisT a
+                 in if t >= tLo && t <= tHi then (setBox a w bp, df) else (bp, df)
+            else if b == ax.shiftAdd a stepT
+              then (bp, setBox (a, b) w df)
+              else if a == ax.shiftAdd b stepT
+                then (bp, setBox (b, a) (negWeight w) df)
+                else (bp, df))
+       (BoxLeaf, BoxLeaf) pol
 
 ||| Transverse-axis (`axisT`, `tLo <= t <= tHi`) background-subtracted excitation readout,
 ||| extracting spatial moments via `flattenHMSetBox (mapBox ax.toSiteMSet qpBox)`
-||| and transverse flux correlation via `dotBox bandPol (contractR dFluxT + contractL dFluxT)`.
+||| and transverse flux correlation via `dotBox bandPol (contractRBox dFluxT <+> contractLBox dFluxT)`.
 public export
 measureBandAxis :
   Ord k =>
@@ -268,12 +269,12 @@ measureBandAxis :
 measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
   let dPol              = subMaxel st.polarityMaxel bgSt.polarityMaxel
       (bandPol, dFluxT) = extractBandPolarityAndFluxAxis ax axisT tLo tHi dPol
-      qpBox             = hadamardBox bandPol bandPol
+      qpBox             = bandPol .*. bandPol
       accQPol           = unwrapBox (totalMassBox qpBox)
       momentMSet        = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
       wX                = unwrapBox (lookupKeyHMSet axisX momentMSet)
       wT                = unwrapBox (lookupKeyHMSet axisT momentMSet)
-      accFlux           = unwrapBox (dotBox bandPol (unionBox (contractRBox dFluxT) (contractLBox dFluxT)))
+      accFlux           = unwrapBox (bandPol <.> (contractRBox dFluxT <+> contractLBox dFluxT))
       mxM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (MkBoxInt (wX * 1000)) accQPol)
       mtM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (MkBoxInt (wT * 1000)) accQPol)
       net               = statePolarityNet st + stateFluxNet st
@@ -317,11 +318,9 @@ bandsEqualInBox :
   (st, bgSt, vacSt : EvolutionState k) ->
   Bool
 bandsEqualInBox ax xLo xHi yLo yHi st bgSt vacSt =
-  let dPol = subMaxel st.polarityMaxel bgSt.polarityMaxel
-      vPol = vacSt.polarityMaxel
-      fltP = filterBox (\(a, b) => inBoxRange ax xLo xHi yLo yHi a &&
+  let fltP = filterMaxel (\a, b => inBoxRange ax xLo xHi yLo yHi a &&
                                    inBoxRange ax xLo xHi yLo yHi b)
-  in fltP dPol.rawMaxelBox == fltP vPol.rawMaxelBox
+  in fltP (subMaxel st.polarityMaxel bgSt.polarityMaxel) == fltP vacSt.polarityMaxel
 
 ||| Plus-mode quadrupole polarization of `loadM`:
 ||| `sum_{a} L(a, a + step_X) - sum_{a} L(a, a + step_Y)`.
@@ -330,10 +329,11 @@ loadQuadrupolePlus : Ord k => AxisBasis k -> QuadranceMaxel k -> Integer
 loadQuadrupolePlus ax loadM =
   let sX = ax.axisStep axisX
       sY = ax.axisStep axisY
-  in foldBox (\(a, b), (MkBoxInt w), acc =>
-                case canonLinkStart ax sX a b of
-                  Just _  => acc + w
-                  Nothing => case canonLinkStart ax sY a b of
-                               Just _  => acc - w
-                               Nothing => acc)
-             0 loadM.rawMaxelBox
+  in foldStoredMaxel
+       (\a, b, (MkBoxInt w), acc =>
+          case canonLinkStart ax sX a b of
+            Just _  => acc + w
+            Nothing => case canonLinkStart ax sY a b of
+                         Just _  => acc - w
+                         Nothing => acc)
+       0 loadM
