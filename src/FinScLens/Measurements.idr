@@ -271,8 +271,8 @@ measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
       qpBox             = hadamardBox bandPol bandPol
       accQPol           = unwrapBox (totalMassBox qpBox)
       momentMSet        = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
-      wX                = unwrapBox (lookupPureKey axisX momentMSet)
-      wT                = unwrapBox (lookupPureKey axisT momentMSet)
+      wX                = unwrapBox (lookupKeyHMSet axisX momentMSet)
+      wT                = unwrapBox (lookupKeyHMSet axisT momentMSet)
       accFlux           = unwrapBox (dotBox bandPol (unionBox (contractRBox dFluxT) (contractLBox dFluxT)))
       mxM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (MkBoxInt (wX * 1000)) accQPol)
       mtM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (MkBoxInt (wT * 1000)) accQPol)

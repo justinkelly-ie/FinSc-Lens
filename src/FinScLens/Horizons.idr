@@ -91,7 +91,7 @@ classifyFlatClose state =
 public export
 classifyHereditaryClose : Configuration -> CloseOutcome
 classifyHereditaryClose root =
-  if root == emptyPureMSet
+  if root == emptyHMSet
     then CleanVacuumCollapse
     else let work = rootActivePeelWork root
              net  = unwrapBox (sumHMSet root)
@@ -186,35 +186,35 @@ observeHorizonFreeze spec workPerCycle =
 
 public export
 vacuumMSet : Configuration
-vacuumMSet = emptyPureMSet
+vacuumMSet = emptyHMSet
 
 ||| Canonical 1D photon dipole `A_1 = alpha^{+1} - alpha^{-1}`.
 public export
 photonMSet : Configuration
 photonMSet =
-  subHMSet (MkHMSet (singletonBox (scalarKeyHMSet 1) (intToBoxInt 1)))
-           (MkHMSet (singletonBox (scalarKeyHMSet (-1)) (intToBoxInt 1)))
+  subHMSet (MkHMSet (singletonBox (scalarKeyHMSet 1) (MkBoxInt 1)))
+           (MkHMSet (singletonBox (scalarKeyHMSet (-1)) (MkBoxInt 1)))
 
 ||| Canonical Proton triad `uud = (+2, +2, -1)` at axes `1, 2, 3`.
 public export
 protonMSet : Configuration
 protonMSet =
-  MkHMSet $ setBox (scalarKeyHMSet 3) (intToBoxInt (-1))
-          $ setBox (scalarKeyHMSet 2) (intToBoxInt 2)
-          $ setBox (scalarKeyHMSet 1) (intToBoxInt 2) BoxLeaf
+  MkHMSet $ setBox (scalarKeyHMSet 3) (MkBoxInt (-1))
+          $ setBox (scalarKeyHMSet 2) (MkBoxInt 2)
+          $ setBox (scalarKeyHMSet 1) (MkBoxInt 2) BoxLeaf
 
 ||| Canonical Neutron triad `udd = (+2, -1, -1)` at axes `1, 2, 3`.
 public export
 neutronMSet : Configuration
 neutronMSet =
-  MkHMSet $ setBox (scalarKeyHMSet 3) (intToBoxInt (-1))
-          $ setBox (scalarKeyHMSet 2) (intToBoxInt (-1))
-          $ setBox (scalarKeyHMSet 1) (intToBoxInt 2) BoxLeaf
+  MkHMSet $ setBox (scalarKeyHMSet 3) (MkBoxInt (-1))
+          $ setBox (scalarKeyHMSet 2) (MkBoxInt (-1))
+          $ setBox (scalarKeyHMSet 1) (MkBoxInt 2) BoxLeaf
 
 ||| Dense massive probe configuration (`10 * protonMSet`).
 public export
 heavyMassMSet : Configuration
-heavyMassMSet = scaleHMSet (intToBoxInt 10) protonMSet
+heavyMassMSet = scaleHMSet (MkBoxInt 10) protonMSet
 
 public export
 vacuumSettingText : String
