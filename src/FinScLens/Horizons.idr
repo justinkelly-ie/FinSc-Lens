@@ -25,16 +25,6 @@ public export
 TopologicalRelic : Type
 TopologicalRelic = HereditaryMSet MultisetBit
 
-||| Strips signed multiplicities down to the unsigned `TopologicalRelic` skeleton (`castSupportHMSet`).
-public export
-quenchRelic : Configuration -> TopologicalRelic
-quenchRelic = castSupportHMSet
-
-||| Embeds an unsigned `TopologicalRelic` skeleton back into a unit-weight `Configuration`.
-public export
-embedRelic : TopologicalRelic -> Configuration
-embedRelic = castSupportHMSet
-
 ||| Observer classification of a quenched final state after closing an `App1` universe handle.
 public export
 data CloseOutcome : Type where
@@ -186,15 +176,6 @@ observeHorizonFreeze spec workPerCycle =
 -- 2. INITIAL PROBE CONFIGURATIONS & SERIALIZED BOUNDARY VALIDATORS
 --------------------------------------------------------------------------------
 
-public export
-vacuumMSet : Configuration
-vacuumMSet = emptyHMSet
-
-||| Canonical 1D photon dipole `A_1 = alpha^{+1} - alpha^{-1}`.
-public export
-photonMSet : Configuration
-photonMSet = wrapBox (scalarKeyHMSet 1) - wrapBox (scalarKeyHMSet (-1))
-
 ||| Canonical Proton triad `uud = (+2, +2, -1)` at axes `1, 2, 3`.
 public export
 protonMSet : Configuration
@@ -267,16 +248,6 @@ mkPolyFuelHorizonSpec polyOrder retroDepth =
   let (_, stepBudget) = selfFuelOfHMSet (spreadZHMSet polyOrder)
   in MkHorizonSpec (BoundedTime stepBudget) retroDepth stepBudget
 
-||| Coarse observation horizon (`RetroTime 0`) budgeted from `spreadZHMSet 10`.
-public export
-coarseHorizonSpec : HorizonSpec
-coarseHorizonSpec = mkPolyFuelHorizonSpec 10 0
-
-||| Deep UV observation horizon (`RetroTime 2`) budgeted from `spreadZHMSet 10`.
-public export
-deepUVHorizonSpec : HorizonSpec
-deepUVHorizonSpec = mkPolyFuelHorizonSpec 10 2
-
 ||| Streams irreducible Cigler-Herbig spread polynomial factors `Psi_d(x)` across ticks `d = 1..n`.
 public export
 streamGohDivisorFactors : (n : Nat) -> TimeStream OpenFuture Configuration
@@ -295,7 +266,7 @@ freezeGohSpreadStream : (n : Nat) -> (Configuration, Nat, Nat, Nat, StreamFreeze
 freezeGohSpreadStream n =
   let (MkAnyGohFuel _ yFuel, sBudget) = selfFuelOfHMSet (spreadZHMSet n)
       relic = freezeTimeStreamWith 0 yFuel sBudget (*) 1 (streamGohDivisorFactors n)
-  in (relic.relicState, gohSteps yFuel, relic.yieldsConsumed, relic.stepsConsumed, relic.freezeReason)
+  in (relic.relicState, yFuel.fuelSteps, relic.yieldsConsumed, relic.stepsConsumed, relic.freezeReason)
 
 --------------------------------------------------------------------------------
 -- 4. COMPILE-TIME QTT 0 PROBE, CODEC & GOH SPREAD THEOREMS
@@ -310,32 +281,33 @@ checkSettingDecode txt expected =
 
 public export
 0 prfVacuumZeroStreamWork :
-  (FinScBox.Views.streamPeelWorkHMSet FinScLens.Horizons.vacuumMSet).workSteps = 0
+  (FinScBox.Views.streamPeelWorkHMSet (the Configuration FinScBox.HereditaryMSet.emptyHMSet)).workSteps = 0
 prfVacuumZeroStreamWork = Refl
 
 public export
 0 prfQuenchRelicIdempotent :
-  FinScLens.Horizons.quenchRelic
-    (FinScLens.Horizons.embedRelic
-      (FinScLens.Horizons.quenchRelic FinScLens.Horizons.protonMSet))
-  = FinScLens.Horizons.quenchRelic FinScLens.Horizons.protonMSet
+  (let r0 : TopologicalRelic
+       r0 = FinScBox.HereditaryMSet.castSupportHMSet FinScLens.Horizons.protonMSet
+       c0 : Configuration
+       c0 = FinScBox.HereditaryMSet.castSupportHMSet r0
+   in the TopologicalRelic (FinScBox.HereditaryMSet.castSupportHMSet c0) == r0) = True
 prfQuenchRelicIdempotent = Refl
 
 public export
 0 prfLoadThrottleLocalizedRoundTrips :
-  (let pos = mkPureCoord3D (-8) 7 (-3)
-       kL  = mkLoadKey FinScLens.Horizons.photonMSet
-       kT  = mkThrottleKey FinScLens.Horizons.photonMSet
+  (let pos = mkPureCoord [-8, 7, -3]
+       kL  = mkLoadKey FinScBox.BlackRedZoom.sampleUnitPairMSet
+       kT  = mkThrottleKey FinScBox.BlackRedZoom.sampleUnitPairMSet
        kM  = mkLocalizedKey pos FinScLens.Horizons.protonMSet
-   in (unpackLoadKey kL == Just FinScLens.Horizons.photonMSet) &&
-      (unpackThrottleKey kT == Just FinScLens.Horizons.photonMSet) &&
+   in (unpackLoadKey kL == Just FinScBox.BlackRedZoom.sampleUnitPairMSet) &&
+      (unpackThrottleKey kT == Just FinScBox.BlackRedZoom.sampleUnitPairMSet) &&
       (lookupLocalizedAt pos (wrapBox kM) == FinScLens.Horizons.protonMSet)) = True
 prfLoadThrottleLocalizedRoundTrips = Refl
 
 public export
 0 prfStreamWorkMonotonic :
-  (let wVac   = (streamPeelWorkHMSet FinScLens.Horizons.vacuumMSet).workSteps
-       wPhot  = (streamPeelWorkHMSet FinScLens.Horizons.photonMSet).workSteps
+  (let wVac   = (streamPeelWorkHMSet (the Configuration FinScBox.HereditaryMSet.emptyHMSet)).workSteps
+       wPhot  = (streamPeelWorkHMSet FinScBox.BlackRedZoom.sampleUnitPairMSet).workSteps
        wProt  = (streamPeelWorkHMSet FinScLens.Horizons.protonMSet).workSteps
        wHeavy = (streamPeelWorkHMSet FinScLens.Horizons.heavyMassMSet).workSteps
    in (wVac == 0) && (wVac < wPhot) && (wPhot < wProt) && (wProt < wHeavy)) = True
@@ -349,13 +321,13 @@ prfFastPeelMatchesProton = Refl
 
 public export
 0 prfAllSettingsParityAndDecode :
-  ((FinScLens.Horizons.vacuumSettingText    == renderPureMultiset FinScLens.Horizons.vacuumMSet) &&
-   (FinScLens.Horizons.photonSettingText    == renderPureMultiset FinScLens.Horizons.photonMSet) &&
+  ((FinScLens.Horizons.vacuumSettingText    == renderPureMultiset FinScBox.HereditaryMSet.emptyHMSet) &&
+   (FinScLens.Horizons.photonSettingText    == renderPureMultiset FinScBox.BlackRedZoom.sampleUnitPairMSet) &&
    (FinScLens.Horizons.protonSettingText    == renderPureMultiset FinScLens.Horizons.protonMSet) &&
    (FinScLens.Horizons.neutronSettingText   == renderPureMultiset FinScLens.Horizons.neutronMSet) &&
    (FinScLens.Horizons.heavyMassSettingText == renderPureMultiset FinScLens.Horizons.heavyMassMSet) &&
-   checkSettingDecode FinScLens.Horizons.vacuumSettingText    FinScLens.Horizons.vacuumMSet &&
-   checkSettingDecode FinScLens.Horizons.photonSettingText    FinScLens.Horizons.photonMSet &&
+   checkSettingDecode FinScLens.Horizons.vacuumSettingText    FinScBox.HereditaryMSet.emptyHMSet &&
+   checkSettingDecode FinScLens.Horizons.photonSettingText    FinScBox.BlackRedZoom.sampleUnitPairMSet &&
    checkSettingDecode FinScLens.Horizons.protonSettingText    FinScLens.Horizons.protonMSet &&
    checkSettingDecode FinScLens.Horizons.neutronSettingText   FinScLens.Horizons.neutronMSet &&
    checkSettingDecode FinScLens.Horizons.heavyMassSettingText FinScLens.Horizons.heavyMassMSet) = True

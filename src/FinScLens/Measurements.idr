@@ -201,12 +201,12 @@ Show AnisotropicStressReport where
 public export
 isCoreSite : AxisBasis k -> k -> Bool
 isCoreSite ax pos =
-  let x = coordAlong ax axisX pos
-      y = coordAlong ax axisY pos
+  let x = coordAlong ax (axisNat 0) pos
+      y = coordAlong ax (axisNat 1) pos
   in x >= (-1) && x <= 1 && y >= (-1) && y <= 2
 
 public export
-canonAnyLinkStart : Ord k => AxisBasis k -> PolarityMaxel k -> k -> k -> Maybe k
+canonAnyLinkStart : Ord k => AxisBasis k -> Maxel BoxInt k k DiagAntisymForm -> k -> k -> Maybe k
 canonAnyLinkStart ax pol a b =
   findBox (\axKey, _ => canonLinkStart ax (ax.axisStep axKey) a b)
           (activeAxisAtomsOf ax pol)
@@ -233,7 +233,7 @@ extractBandPolarityAndFluxAxis :
   AxisBasis k ->
   (axisT : PureMultiset) ->
   (tLo, tHi : Integer) ->
-  PolarityMaxel k ->
+  Maxel BoxInt k k DiagAntisymForm ->
   (Box BoxInt k, Box BoxInt (k, k))
 extractBandPolarityAndFluxAxis ax axisT tLo tHi pol =
   let stepT = ax.axisStep axisT
@@ -251,7 +251,7 @@ extractBandPolarityAndFluxAxis ax axisT tLo tHi pol =
 
 ||| Transverse-axis (`axisT`, `tLo <= t <= tHi`) background-subtracted excitation readout,
 ||| extracting spatial moments via `flattenHMSetBox (mapBox ax.toSiteMSet qpBox)`
-||| and transverse flux correlation via `dotBox bandPol (contractRBox dFluxT <+> contractLBox dFluxT)`.
+||| and transverse flux correlation via `bandPol <.> (contractRBox dFluxT <+> contractLBox dFluxT)`.
 public export
 measureBandAxis :
   Ord k =>
@@ -268,7 +268,7 @@ measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
       qpBox             = bandPol .*. bandPol
       accQPol           = unwrapBox (totalMassBox qpBox)
       momentMSet        = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
-      wX                = lookupKeyHMSet axisX momentMSet
+      wX                = lookupKeyHMSet (axisNat 0) momentMSet
       wT                = lookupKeyHMSet axisT momentMSet
       accFlux           = unwrapBox (bandPol <.> (contractRBox dFluxT <+> contractLBox dFluxT))
       mxM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wX * 1000) accQPol)
@@ -277,34 +277,13 @@ measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
   in MkExcitationReport mxM mtM accFlux initQ finalQ maxQ net workSteps
 
 public export
-measureBandRange :
-  Ord k =>
-  AxisBasis k ->
-  (yLo, yHi : Integer) ->
-  (st, bgSt : EvolutionState k) ->
-  (initQ, finalQ, maxQ : Integer) ->
-  (workSteps : Nat) ->
-  ExcitationReport
-measureBandRange ax = measureBandAxis ax axisY
-
-public export
-measureBand :
-  Ord k =>
-  AxisBasis k ->
-  (st, bgSt : EvolutionState k) ->
-  (initQ, finalQ, maxQ : Integer) ->
-  (workSteps : Nat) ->
-  ExcitationReport
-measureBand ax = measureBandRange ax (-3) 4
-
-public export
 inBoxRange : AxisBasis k -> (xLo, xHi, yLo, yHi : Integer) -> k -> Bool
 inBoxRange ax xLo xHi yLo yHi pos =
-  let x = coordAlong ax axisX pos
-      y = coordAlong ax axisY pos
+  let x = coordAlong ax (axisNat 0) pos
+      y = coordAlong ax (axisNat 1) pos
   in x >= xLo && x <= xHi && y >= yLo && y <= yHi
 
-||| Bit-for-bit check that `(st - bgSt)` matches `vacSt` identically on every `PolarityMaxel` entry
+||| Bit-for-bit check that `(st - bgSt)` matches `vacSt` identically on every polarity entry
 ||| inside `[xLo..xHi] x [yLo..yHi]` (confirming zero action-at-a-distance outside the `c = 1` cone).
 public export
 bandsEqualInBox :
@@ -321,10 +300,10 @@ bandsEqualInBox ax xLo xHi yLo yHi st bgSt vacSt =
 ||| Plus-mode quadrupole polarization of `loadM`:
 ||| `sum_{a} L(a, a + step_X) - sum_{a} L(a, a + step_Y)`.
 public export
-loadQuadrupolePlus : Ord k => AxisBasis k -> QuadranceMaxel k -> Integer
+loadQuadrupolePlus : Ord k => AxisBasis k -> Maxel BoxInt k k SymForm -> Integer
 loadQuadrupolePlus ax loadM =
-  let sX = ax.axisStep axisX
-      sY = ax.axisStep axisY
+  let sX = ax.axisStep (axisNat 0)
+      sY = ax.axisStep (axisNat 1)
   in foldStoredMaxel
        (\a, b, (MkBoxInt w), acc =>
           case canonLinkStart ax sX a b of
