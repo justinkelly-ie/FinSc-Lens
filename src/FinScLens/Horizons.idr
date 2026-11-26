@@ -2,6 +2,7 @@ module FinScLens.Horizons
 
 import Control.App
 import Data.DPair
+import Data.List
 import Data.Maybe
 import FinScBox.BoxInt
 import FinScBox.Interfaces
@@ -34,16 +35,6 @@ public export
 embedRelic : TopologicalRelic -> Configuration
 embedRelic = castSupportHMSet
 
-||| Concise textual rendering of a `Time` horizon tag.
-public export
-showTime : Time -> String
-showTime (StaticTime l h)  = "StaticTime(" ++ show l ++ ", " ++ show h ++ ")"
-showTime (BoundedTime c)   = "BoundedTime(" ++ show c ++ ")"
-showTime (RetroTime g)     = "RetroTime(" ++ show g ++ ")"
-showTime (WindowedTime w)  = "WindowedTime(" ++ show w ++ ")"
-showTime OpenFuture        = "OpenFuture"
-showTime BilateralTime     = "BilateralTime"
-
 ||| Observer classification of a quenched final state after closing an `App1` universe handle.
 public export
 data CloseOutcome : Type where
@@ -53,10 +44,17 @@ data CloseOutcome : Type where
   FrozenAtHorizon     : (staticTime : Time) -> (canonicalText : String) -> (workSteps : Nat) -> (globalNetSum : Integer) -> CloseOutcome
 
 public export
+Eq CloseOutcome where
+  CleanVacuumCollapse           == CleanVacuumCollapse           = True
+  (FrozenAtHorizon t1 s1 w1 n1) == (FrozenAtHorizon t2 s2 w2 n2) =
+    t1 == t2 && s1 == s2 && w1 == w2 && n1 == n2
+  _ == _ = False
+
+public export
 Show CloseOutcome where
   show CleanVacuumCollapse = "CleanVacuumCollapse([])"
   show (FrozenAtHorizon t txt work net) =
-    "FrozenAtHorizon(time=" ++ showTime t ++ ", work=" ++ show work ++ ", net=" ++ show net ++ ", text=" ++ txt ++ ")"
+    "FrozenAtHorizon(time=" ++ show t ++ ", work=" ++ show work ++ ", net=" ++ show net ++ ", text=" ++ txt ++ ")"
 
 public export
 closeNetSum : CloseOutcome -> Integer
@@ -119,7 +117,7 @@ Eq HorizonSpec where
 public export
 Show HorizonSpec where
   show h =
-    "HorizonSpec(bound=" ++ showTime h.boundTime ++
+    "HorizonSpec(bound=" ++ show h.boundTime ++
     ", retro=" ++ show h.retroDepth ++
     ", budget=" ++ show h.budgetCap ++ ")"
 
@@ -145,7 +143,7 @@ Show UniverseErr where
   show (UnbalancedVacuumSplitError net) =
     "UnbalancedVacuumSplitError(net=" ++ show net ++ " /= 0)"
   show (HorizonFrozenError t r cyc) =
-    "HorizonFrozenError(time=" ++ showTime t ++ ", reason=" ++ show r ++ ", cycles=" ++ show cyc ++ ")"
+    "HorizonFrozenError(time=" ++ show t ++ ", reason=" ++ show r ++ ", cycles=" ++ show cyc ++ ")"
 
 ||| Readout returned when probing a live black-box universe through a `HorizonSpec`.
 public export
@@ -160,7 +158,7 @@ record HorizonObservationReport where
 public export
 Show HorizonObservationReport where
   show r =
-    "HorizonObservationReport(time=" ++ showTime r.horizonTime ++
+    "HorizonObservationReport(time=" ++ show r.horizonTime ++
     ", retro=" ++ show r.retroDepth ++
     ", cycles=" ++ show r.cyclesCompleted ++
     ", workUsed=" ++ show r.streamWorkUsed ++
@@ -283,12 +281,13 @@ deepUVHorizonSpec = mkPolyFuelHorizonSpec 10 2
 public export
 streamGohDivisorFactors : (n : Nat) -> TimeStream OpenFuture Configuration
 streamGohDivisorFactors n =
-  MkTimeStream 1 (\d =>
-    if d == 0 || d > n
-      then StreamDone
-      else if snd (divModIntegerPos (natToInteger n) (natToInteger d)) == 0
-        then StreamYield (gohPsiFactor d)
-        else StreamSkip)
+  let tbl = gohPsiTableUpTo n
+  in MkTimeStream 1 (\d =>
+       if d == 0 || d > n
+         then StreamDone
+         else if dividesNatPos d n
+           then StreamYield (fromMaybe 1 (lookup d tbl))
+           else StreamSkip)
 
 ||| Freezes `streamGohDivisorFactors n` via Cauchy multiplication (`*`) under `selfFuelOfHMSet (spreadZHMSet n)`.
 public export

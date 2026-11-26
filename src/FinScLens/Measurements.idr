@@ -208,11 +208,7 @@ isCoreSite ax pos =
 public export
 canonAnyLinkStart : Ord k => AxisBasis k -> PolarityMaxel k -> k -> k -> Maybe k
 canonAnyLinkStart ax pol a b =
-  foldBox (\axKey, _, res =>
-             case res of
-               Just s  => Just s
-               Nothing => canonLinkStart ax (ax.axisStep axKey) a b)
-          Nothing
+  findBox (\axKey, _ => canonLinkStart ax (ax.axisStep axKey) a b)
           (activeAxisAtomsOf ax pol)
 
 ||| Percentage of `quadranceOf st.polarityMaxel` localized inside `[-1..1] x [-1..2]`.
@@ -272,11 +268,11 @@ measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
       qpBox             = bandPol .*. bandPol
       accQPol           = unwrapBox (totalMassBox qpBox)
       momentMSet        = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
-      wX                = unwrapBox (lookupKeyHMSet axisX momentMSet)
-      wT                = unwrapBox (lookupKeyHMSet axisT momentMSet)
+      wX                = lookupKeyHMSet axisX momentMSet
+      wT                = lookupKeyHMSet axisT momentMSet
       accFlux           = unwrapBox (bandPol <.> (contractRBox dFluxT <+> contractLBox dFluxT))
-      mxM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (MkBoxInt (wX * 1000)) accQPol)
-      mtM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (MkBoxInt (wT * 1000)) accQPol)
+      mxM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wX * 1000) accQPol)
+      mtM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wT * 1000) accQPol)
       net               = statePolarityNet st + stateFluxNet st
   in MkExcitationReport mxM mtM accFlux initQ finalQ maxQ net workSteps
 
