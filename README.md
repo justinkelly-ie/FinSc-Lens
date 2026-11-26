@@ -19,8 +19,8 @@ Finite-Science (Layer 4: Top-of-Stack Lab & Audits)
 
 ## Modules
 
-- [`Horizons.idr`](src/FinScLens/Horizons.idr) — Observer `Time` / UV cutoffs (`HorizonSpec`, `mkPolyBoundHorizonSpec`, `observeHorizonFreeze`), `CloseOutcome` classification & `rootActivePeelWork`, initial probe configurations (`protonMSet`, `neutronMSet`, `heavyMassMSet`), quenched `TopologicalRelic` (`castSupportHMSet`), Goh spread stream freeze-out, and `Dec` boundary validators.
-- [`Measurements.idr`](src/FinScLens/Measurements.idr) — Readout records (`ExcitationReport`, `SelfTrapReport`, `TwoBodyReport`, `CausalLightConeReport`, `AnisotropicStressReport`), spatial moment/flux/quadrupole reductions (`measureBandAxis`, `fieldCoreQuadranceFrac`, `bandsEqualInBox`, `loadQuadrupoleAxes`), and division-free projective/rotor-frame readouts (`measureBandCentroidProportions`, `measureBandDeflectionSpread`, `observeStateMoment3D`, `observeRotatedMoment3D`).
+- [`Horizons.idr`](src/FinScLens/Horizons.idr) — Observer `Time` / UV cutoffs (`HorizonSpec`, `mkPolyBoundHorizonSpec`, `observeHorizonFreeze`), `CloseOutcome` classification & `rootActivePeelWork`, quenched `TopologicalRelic` (`castSupportHMSet`), Goh spread stream freeze-out, and `Dec` boundary validators.
+- [`Measurements.idr`](src/FinScLens/Measurements.idr) — Readout records (`ExcitationReport`, `SelfTrapReport`, `TwoBodyReport`, `CausalLightConeReport`, `AnisotropicStressReport`), spatial moment/flux/quadrupole reductions (`measureBandAxis`, `fieldCoreQuadranceFrac`, `bandsEqualInBox`, `loadQuadrupoleAxes`), and division-free projective/rotor-frame readouts (`measureBandDeflectionSpread`, `observeStateMoment3D`, `observeRotatedMoment3D`).
 
 ## Building & Installing
 

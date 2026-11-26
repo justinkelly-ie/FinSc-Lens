@@ -215,11 +215,11 @@ canonAnyLinkStart ax pol a b =
   findBox (\axKey, _ => canonLinkStart (ax.axisStep axKey) a b)
           (activeAxisAtomsOf ax pol)
 
-||| Percentage of `quadranceOf st.polarityMaxel` localized inside `[-1..1] x [-1..2]`.
+||| Percentage of `quadranceOf st.polarityMaxel` localized inside the box `[lo..hi]`.
 public export
-fieldCoreQuadranceFrac : GroupCoord k => AxisBasis k -> EvolutionState k -> Integer
-fieldCoreQuadranceFrac ax st =
-  let inCore = inSpaceBox ax [-1, -1] [1, 2]
+fieldCoreQuadranceFrac : {n : Nat} -> GroupCoord k => AxisBasis k -> (lo, hi : Space n) -> EvolutionState k -> Integer
+fieldCoreQuadranceFrac ax lo hi st =
+  let inCore = inSpaceBox ax lo hi
       qM     = quadranceOf st.polarityMaxel
       totQ   = unwrapBox (sumStoredMaxel qM)
       cM     = filterMaxel (\a, b =>
@@ -310,19 +310,6 @@ bandMoments ax axisT tLo tHi st bgSt =
       momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
   in (lookupKeyHMSet (axisAtom 0) momentMSet, lookupKeyHMSet axisT momentMSet, accQPol)
 
-||| Exact division-free projective centroid proportions `([wX : accQ], [wT : accQ])` on `[tLo..tHi]`.
-public export
-measureBandCentroidProportions :
-  GroupCoord k =>
-  AxisBasis k ->
-  (axisT : PureMultiset) ->
-  (tLo, tHi : Integer) ->
-  (st, bgSt : EvolutionState k) ->
-  (Proportion, Proportion)
-measureBandCentroidProportions ax axisT tLo tHi st bgSt =
-  let (wX, wT, accQ) = bandMoments ax axisT tLo tHi st bgSt
-  in (MkProportion wX accQ, MkProportion wT accQ)
-
 ||| Exact rational deflection spread between the `+X` beam direction and shifted centroid `(wX, wT - t0 * accQ)`.
 public export
 measureBandDeflectionSpread :
@@ -336,7 +323,7 @@ measureBandDeflectionSpread :
 measureBandDeflectionSpread ax axisT tLo tHi t0 st bgSt =
   let (wX, wT, accQ) = bandMoments ax axisT tLo tHi st bgSt
       dW             = wT - MkBoxInt t0 * accQ
-  in spreadBetween blueMetric2 (vec2Box 1 0) (vec2Box wX dW)
+  in spreadBetween blueMetric (vec2Box 1 0) (vec2Box wX dW)
 
 ||| Extracts the 3D quadrance-weighted spatial moment vector `(M0, M1, M2)` over `Fin 3` externally.
 public export

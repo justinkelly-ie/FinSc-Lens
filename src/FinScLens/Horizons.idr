@@ -171,7 +171,7 @@ observeHorizonFreeze spec workPerCycle =
         freezeStateStreamWith
           spec.retroDepth
           (MkGohBound {capacity = spec.budgetCap} spec.budgetCap)
-          20
+          spec.budgetCap
           (\u => if workPerCycle == 0 then (StreamSkip, 0, 1) else (StreamYield u, workPerCycle, 0))
           ()
   in MkHorizonObservationReport
@@ -182,49 +182,8 @@ observeHorizonFreeze spec workPerCycle =
        relic.freezeReason
 
 --------------------------------------------------------------------------------
--- 2. INITIAL PROBE CONFIGURATIONS & SERIALIZED BOUNDARY VALIDATORS
+-- 2. SERIALIZED BOUNDARY VALIDATORS
 --------------------------------------------------------------------------------
-
-||| Canonical Proton triad `uud = (+2, +2, -1)` at axes `1, 2, 3`.
-public export
-protonMSet : Configuration
-protonMSet =
-  MkHMSet $ setBox (scalarKeyHMSet 3) (MkBoxInt (-1))
-          $ setBox (scalarKeyHMSet 2) (MkBoxInt 2)
-          $ setBox (scalarKeyHMSet 1) (MkBoxInt 2) BoxLeaf
-
-||| Canonical Neutron triad `udd = (+2, -1, -1)` at axes `1, 2, 3`.
-public export
-neutronMSet : Configuration
-neutronMSet =
-  MkHMSet $ setBox (scalarKeyHMSet 3) (MkBoxInt (-1))
-          $ setBox (scalarKeyHMSet 2) (MkBoxInt (-1))
-          $ setBox (scalarKeyHMSet 1) (MkBoxInt 2) BoxLeaf
-
-||| Dense massive probe configuration (`10 * protonMSet`).
-public export
-heavyMassMSet : Configuration
-heavyMassMSet = scaleHMSet (MkBoxInt 10) protonMSet
-
-public export
-vacuumSettingText : String
-vacuumSettingText = "[]"
-
-public export
-photonSettingText : String
-photonSettingText = "{{[]:[-1]}:[-1], {[]:[1]}:[1]}"
-
-public export
-protonSettingText : String
-protonSettingText = "{{[]:[1]}:[2], {[]:[2]}:[2], {[]:[3]}:[-1]}"
-
-public export
-neutronSettingText : String
-neutronSettingText = "{{[]:[1]}:[2], {[]:[2]}:[-1], {[]:[3]}:[-1]}"
-
-public export
-heavyMassSettingText : String
-heavyMassSettingText = "{{[]:[1]}:[20], {[]:[2]}:[20], {[]:[3]}:[-10]}"
 
 ||| Validates serialized multiset configuration text via total `Dec` recognizer before entering `App1`.
 export
@@ -278,15 +237,8 @@ freezeGohSpreadStream n =
   in (relic.relicState, yBound.boundSteps, relic.yieldsConsumed, relic.stepsConsumed, relic.freezeReason)
 
 --------------------------------------------------------------------------------
--- 4. COMPILE-TIME QTT 0 PROBE, CODEC & GOH SPREAD THEOREMS
+-- 4. COMPILE-TIME QTT 0 CODEC & GOH SPREAD THEOREMS
 --------------------------------------------------------------------------------
-
-public export
-checkSettingDecode : String -> Configuration -> Bool
-checkSettingDecode txt expected =
-  case parsePureMultiset txt of
-    Just m  => m == expected
-    Nothing => False
 
 public export
 0 prfVacuumZeroStreamWork :
@@ -296,7 +248,7 @@ prfVacuumZeroStreamWork = Refl
 public export
 0 prfQuenchRelicIdempotent :
   (let r0 : TopologicalRelic
-       r0 = FinScBox.HereditaryMSet.castSupportHMSet FinScLens.Horizons.protonMSet
+       r0 = FinScBox.HereditaryMSet.castSupportHMSet FinScBox.BlackRedZoom.sampleUnitPairMSet
        c0 : Configuration
        c0 = FinScBox.HereditaryMSet.castSupportHMSet r0
    in the TopologicalRelic (FinScBox.HereditaryMSet.castSupportHMSet c0) == r0) = True
@@ -307,40 +259,11 @@ public export
   (let pos = mkPureCoord [-8, 7, -3]
        kL  = mkLoadKey FinScBox.BlackRedZoom.sampleUnitPairMSet
        kT  = mkThrottleKey FinScBox.BlackRedZoom.sampleUnitPairMSet
-       kM  = mkLocalizedKey pos FinScLens.Horizons.protonMSet
+       kM  = mkLocalizedKey pos FinScBox.BlackRedZoom.sampleUnitPairMSet
    in (unpackLoadKey kL == Just FinScBox.BlackRedZoom.sampleUnitPairMSet) &&
       (unpackThrottleKey kT == Just FinScBox.BlackRedZoom.sampleUnitPairMSet) &&
-      (lookupLocalizedAt pos (wrapBox kM) == FinScLens.Horizons.protonMSet)) = True
+      (lookupLocalizedAt pos (wrapBox kM) == FinScBox.BlackRedZoom.sampleUnitPairMSet)) = True
 prfLoadThrottleLocalizedRoundTrips = Refl
-
-public export
-0 prfStreamWorkMonotonic :
-  (let wVac   = (streamPeelWorkHMSet (the Configuration FinScBox.HereditaryMSet.emptyHMSet)).workSteps
-       wPhot  = (streamPeelWorkHMSet FinScBox.BlackRedZoom.sampleUnitPairMSet).workSteps
-       wProt  = (streamPeelWorkHMSet FinScLens.Horizons.protonMSet).workSteps
-       wHeavy = (streamPeelWorkHMSet FinScLens.Horizons.heavyMassMSet).workSteps
-   in (wVac == 0) && (wVac < wPhot) && (wPhot < wProt) && (wProt < wHeavy)) = True
-prfStreamWorkMonotonic = Refl
-
-public export
-0 prfFastPeelMatchesProton :
-  FinScBox.Views.fastPeelWorkHMSet FinScLens.Horizons.protonMSet
-  = (FinScBox.Views.streamPeelWorkHMSet FinScLens.Horizons.protonMSet).workSteps
-prfFastPeelMatchesProton = Refl
-
-public export
-0 prfAllSettingsParityAndDecode :
-  ((FinScLens.Horizons.vacuumSettingText    == renderPureMultiset FinScBox.HereditaryMSet.emptyHMSet) &&
-   (FinScLens.Horizons.photonSettingText    == renderPureMultiset FinScBox.BlackRedZoom.sampleUnitPairMSet) &&
-   (FinScLens.Horizons.protonSettingText    == renderPureMultiset FinScLens.Horizons.protonMSet) &&
-   (FinScLens.Horizons.neutronSettingText   == renderPureMultiset FinScLens.Horizons.neutronMSet) &&
-   (FinScLens.Horizons.heavyMassSettingText == renderPureMultiset FinScLens.Horizons.heavyMassMSet) &&
-   checkSettingDecode FinScLens.Horizons.vacuumSettingText    FinScBox.HereditaryMSet.emptyHMSet &&
-   checkSettingDecode FinScLens.Horizons.photonSettingText    FinScBox.BlackRedZoom.sampleUnitPairMSet &&
-   checkSettingDecode FinScLens.Horizons.protonSettingText    FinScLens.Horizons.protonMSet &&
-   checkSettingDecode FinScLens.Horizons.neutronSettingText   FinScLens.Horizons.neutronMSet &&
-   checkSettingDecode FinScLens.Horizons.heavyMassSettingText FinScLens.Horizons.heavyMassMSet) = True
-prfAllSettingsParityAndDecode = Refl
 
 public export
 0 prfPythPowerMatchesSpreadZ28 :
