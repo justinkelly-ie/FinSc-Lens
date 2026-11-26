@@ -26,6 +26,11 @@ record ExcitationReport where
   polarityNetSum  : BoxInt
   activeWorkSteps : Nat
 
+||| Sterling recognition predicate verifying finite affine `Proportion` centroids (`den /= 0`).
+public export
+isValidExcitationReport : ExcitationReport -> Bool
+isValidExcitationReport r = isAffineRatio r.meanX && isAffineRatio r.meanY
+
 public export
 Eq ExcitationReport where
   a == b =
@@ -61,6 +66,11 @@ record SelfTrapReport where
   netSignedSum   : BoxInt
   workSteps      : Nat
 
+||| Sterling recognition predicate verifying finite affine `coreShare` (`den /= 0`).
+public export
+isValidSelfTrapReport : SelfTrapReport -> Bool
+isValidSelfTrapReport r = isAffineRatio r.coreShare
+
 public export
 Eq SelfTrapReport where
   a == b =
@@ -95,6 +105,11 @@ record TwoBodyReport where
   tbFinalQ      : BoxInt
   tbMaxQ        : BoxInt
   tbNetSum      : BoxInt
+
+||| Sterling recognition predicate verifying finite affine centroid `Proportion` fields (`den /= 0`).
+public export
+isValidTwoBodyReport : TwoBodyReport -> Bool
+isValidTwoBodyReport r = isAffineRatio r.tbBotY && isAffineRatio r.tbTopY && isAffineRatio r.tbSingleBotY
 
 public export
 Eq TwoBodyReport where
@@ -135,6 +150,13 @@ record CausalLightConeReport where
   clLateDpY        : Proportion
   clLateDpSy       : BoxInt
 
+||| Sterling recognition predicate verifying finite affine cone centroid `Proportion`s (`den /= 0`).
+public export
+isValidCausalLightConeReport : CausalLightConeReport -> Bool
+isValidCausalLightConeReport r =
+  isAffineRatio r.clEarlyVacX && isAffineRatio r.clEarlyDpX &&
+  isAffineRatio r.clLateVacX && isAffineRatio r.clLateDpX && isAffineRatio r.clLateDpY
+
 public export
 Eq CausalLightConeReport where
   a == b =
@@ -168,6 +190,13 @@ record AnisotropicStressReport where
   asProbeVertSy  : BoxInt
   asSymLoadOk    : Bool
   asNetSum       : BoxInt
+
+||| Sterling recognition predicate verifying finite affine probe centroid `Proportion`s (`den /= 0`).
+public export
+isValidAnisotropicStressReport : AnisotropicStressReport -> Bool
+isValidAnisotropicStressReport r =
+  isAffineRatio r.asProbeHorizX && isAffineRatio r.asProbeHorizY &&
+  isAffineRatio r.asProbeVertX && isAffineRatio r.asProbeVertY
 
 public export
 Eq AnisotropicStressReport where

@@ -1,0 +1,14 @@
+[package]
+name = "FinSc-Lens"
+version = "0.3.0"
+ipkg = "FinSc-Lens.ipkg"
+
+[custom.all.FinSc-Box]
+type = "local"
+path = "../FinSc-Box"
+ipkg = "FinSc-Box.ipkg"
+
+[custom.all.FinSc-Space]
+type = "local"
+path = "../FinSc-Space"
+ipkg = "FinSc-Space.ipkg"
