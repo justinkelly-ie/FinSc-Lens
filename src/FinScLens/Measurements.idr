@@ -206,12 +206,8 @@ inSpaceBox ax lo hi pos = go Z lo hi (ax.toSiteMSet pos)
     go _   []        []        _ = True
     go idx (l :: ls) (h :: hs) s =
       let c : SignedCoord
-          c = cast (lookupKeyHMSet (axisNat idx) s)
+          c = cast (lookupKeyHMSet (axisAtom idx) s)
       in c >= l && c <= h && go (S idx) ls hs s
-
-public export
-isCoreSite : AxisBasis k -> k -> Bool
-isCoreSite ax = inSpaceBox ax [-1, -1] [1, 2]
 
 public export
 canonAnyLinkStart : GroupCoord k => AxisBasis k -> Maxel BoxInt k k DiagAntisymForm -> k -> k -> Maybe k
@@ -223,16 +219,17 @@ canonAnyLinkStart ax pol a b =
 public export
 fieldCoreQuadranceFrac : GroupCoord k => AxisBasis k -> EvolutionState k -> Integer
 fieldCoreQuadranceFrac ax st =
-  let qM   = quadranceOf st.polarityMaxel
-      totQ = unwrapBox (sumStoredMaxel qM)
-      cM   = filterMaxel (\a, b =>
-                           if a == b
-                             then isCoreSite ax a
-                             else case canonAnyLinkStart ax st.polarityMaxel a b of
-                                    Just s  => isCoreSite ax s
-                                    Nothing => False)
-                         qM
-      cTot = unwrapBox (sumStoredMaxel cM)
+  let inCore = inSpaceBox ax [-1, -1] [1, 2]
+      qM     = quadranceOf st.polarityMaxel
+      totQ   = unwrapBox (sumStoredMaxel qM)
+      cM     = filterMaxel (\a, b =>
+                             if a == b
+                               then inCore a
+                               else case canonAnyLinkStart ax st.polarityMaxel a b of
+                                      Just s  => inCore s
+                                      Nothing => False)
+                           qM
+      cTot   = unwrapBox (sumStoredMaxel cM)
   in if totQ <= 0 then 0 else divIntegerPos (cTot * 100) totQ
 
 ||| Transverse-axis (`axisT`, `tLo <= t <= tHi`) background-subtracted excitation readout,
@@ -255,7 +252,7 @@ measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
       qpBox      = bandPol .*. bandPol
       accQPol    = unwrapBox (totalMassBox qpBox)
       momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
-      wX         = lookupKeyHMSet (axisNat 0) momentMSet
+      wX         = lookupKeyHMSet (axisAtom 0) momentMSet
       wT         = lookupKeyHMSet axisT momentMSet
       accFlux    = unwrapBox (bandPol <.> (contractRMaxel dFluxT <+> contractLMaxel dFluxT))
       mxM        = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wX * 1000) accQPol)
