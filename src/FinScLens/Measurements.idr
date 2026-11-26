@@ -13,6 +13,16 @@ import FinScLens.Horizons
 -- 1. EXTERNAL MEASUREMENT READOUT RECORDS
 --------------------------------------------------------------------------------
 
+public export
+isValidQuadBounds : (initQ, finalQ, maxQ : BoxInt) -> Bool
+isValidQuadBounds initQ finalQ maxQ =
+  initQ >= 0 && finalQ >= 0 && initQ <= maxQ && finalQ <= maxQ
+
+public export
+isUnitShare : Proportion -> Bool
+isUnitShare p =
+  isAffineRatio p && propGe p (MkProportion 0 1) && propLe p (MkProportion 1 1)
+
 ||| Trajectory & quadrance readout for a localized excitation evolving under quadratic link exchanges.
 public export
 record ExcitationReport where
@@ -26,10 +36,13 @@ record ExcitationReport where
   polarityNetSum  : BoxInt
   activeWorkSteps : Nat
 
-||| Sterling recognition predicate verifying finite affine `Proportion` centroids (`den /= 0`).
+||| Sterling recognition predicate verifying finite affine `Proportion` centroids and quadrance bounds.
 public export
 isValidExcitationReport : ExcitationReport -> Bool
-isValidExcitationReport r = isAffineRatio r.meanX && isAffineRatio r.meanY
+isValidExcitationReport r =
+  isAffineRatio r.meanX &&
+  isAffineRatio r.meanY &&
+  isValidQuadBounds r.initQuadrance r.finalQuadrance r.maxQuadrance
 
 public export
 Eq ExcitationReport where
@@ -66,10 +79,12 @@ record SelfTrapReport where
   netSignedSum   : BoxInt
   workSteps      : Nat
 
-||| Sterling recognition predicate verifying finite affine `coreShare` (`den /= 0`).
+||| Sterling recognition predicate verifying unit `coreShare` in `[0, 1]` and quadrance bounds.
 public export
 isValidSelfTrapReport : SelfTrapReport -> Bool
-isValidSelfTrapReport r = isAffineRatio r.coreShare
+isValidSelfTrapReport r =
+  isUnitShare r.coreShare &&
+  isValidQuadBounds r.initQuadrance r.finalQuadrance r.maxQuadrance
 
 public export
 Eq SelfTrapReport where
@@ -106,10 +121,14 @@ record TwoBodyReport where
   tbMaxQ        : BoxInt
   tbNetSum      : BoxInt
 
-||| Sterling recognition predicate verifying finite affine centroid `Proportion` fields (`den /= 0`).
+||| Sterling recognition predicate verifying finite affine centroid `Proportion` fields and quadrance bounds.
 public export
 isValidTwoBodyReport : TwoBodyReport -> Bool
-isValidTwoBodyReport r = isAffineRatio r.tbBotY && isAffineRatio r.tbTopY && isAffineRatio r.tbSingleBotY
+isValidTwoBodyReport r =
+  isAffineRatio r.tbBotY &&
+  isAffineRatio r.tbTopY &&
+  isAffineRatio r.tbSingleBotY &&
+  isValidQuadBounds r.tbInitQ r.tbFinalQ r.tbMaxQ
 
 public export
 Eq TwoBodyReport where

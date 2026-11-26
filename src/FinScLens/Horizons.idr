@@ -1,8 +1,6 @@
 module FinScLens.Horizons
 
 import Control.App
-import Data.DPair
-import Data.Maybe
 import FinScBox.BoxInt
 import FinScBox.Interfaces
 import FinScBox.Box
@@ -110,6 +108,18 @@ Show HorizonSpec where
     ", retro=" ++ show h.retroDepth ++
     ", budget=" ++ show h.budgetCap ++ ")"
 
+public export
+isBoundedHorizonTime : Time -> Bool
+isBoundedHorizonTime (StaticTime low high) = low <= high
+isBoundedHorizonTime OpenFuture            = False
+isBoundedHorizonTime BilateralTime         = False
+isBoundedHorizonTime _                     = True
+
+||| Sterling recognition predicate certifying a bounded, non-inverted `HorizonSpec`.
+public export
+isValidHorizonSpec : HorizonSpec -> Bool
+isValidHorizonSpec h = isBoundedHorizonTime h.boundTime
+
 ||| Typed boundary exceptions raised in the outer `App` observer shell (`MayThrow`)
 ||| while the inner `App1` universe remains strictly blind and `NoThrow` (`Usage = One`).
 public export
@@ -117,12 +127,14 @@ data UniverseErr : Type where
   InvalidMultisetTextError   : (input : String) -> UniverseErr
   UnbalancedVacuumSplitError : (netResidual : BoxInt) -> UniverseErr
   HorizonFrozenError         : (horizonTime : Time) -> (reason : StreamFreezeReason) -> (cycles : Nat) -> UniverseErr
+  InvalidHorizonSpecError    : (spec : HorizonSpec) -> UniverseErr
 
 public export
 Eq UniverseErr where
   (InvalidMultisetTextError a)   == (InvalidMultisetTextError b)   = a == b
   (UnbalancedVacuumSplitError a) == (UnbalancedVacuumSplitError b) = a == b
   (HorizonFrozenError t1 r1 c1)  == (HorizonFrozenError t2 r2 c2)  = t1 == t2 && r1 == r2 && c1 == c2
+  (InvalidHorizonSpecError a)    == (InvalidHorizonSpecError b)    = a == b
   _ == _ = False
 
 public export
@@ -133,6 +145,8 @@ Show UniverseErr where
     "UnbalancedVacuumSplitError(net=" ++ show net ++ " /= 0)"
   show (HorizonFrozenError t r cyc) =
     "HorizonFrozenError(time=" ++ show t ++ ", reason=" ++ show r ++ ", cycles=" ++ show cyc ++ ")"
+  show (InvalidHorizonSpecError spec) =
+    "InvalidHorizonSpecError(" ++ show spec ++ ")"
 
 ||| Readout returned when probing a live black-box universe through a `HorizonSpec`.
 public export
@@ -184,25 +198,40 @@ observeHorizonFreeze spec workPerCycle =
 -- 2. SERIALIZED BOUNDARY VALIDATORS
 --------------------------------------------------------------------------------
 
-||| Validates serialized multiset configuration text via total `Dec` recognizer before entering `App1`.
+||| Validates and decodes serialized multiset text in a single pass, returning a certified canonical `Subset`.
 export
-validateAndDecodeSetting : Has [Exception UniverseErr] e => String -> App e Configuration
+validateAndDecodeSetting :
+  Has [Exception UniverseErr] e =>
+  String -> App e (Subset Configuration (\m => isCanonicalHMSet m = True))
 validateAndDecodeSetting txt =
-  case recognizePureMultisetText txt of
-    No _ => throw (InvalidMultisetTextError txt)
-    Yes _ =>
-      case decodeCanonicalMultiset txt of
-        Just (Element m _) => pure m
-        Nothing            => throw (InvalidMultisetTextError txt)
+  case decodeCanonicalMultiset txt of
+    Just sub => pure sub
+    Nothing  => throw (InvalidMultisetTextError txt)
 
-||| Enforces global 0D zero-sum neutrality (`wA + wB == 0`) at the black-box boundary.
+||| Recognition predicate for 0D zero-sum vacuum splits (`wA + wB == 0`).
+public export
+isBalancedSplit : (BoxInt, BoxInt) -> Bool
+isBalancedSplit (wA, wB) = wA + wB == 0
+
+||| Enforces global 0D zero-sum neutrality (`wA + wB == 0`) via `recognizeBy isBalancedSplit`.
 export
-requireBalancedSplit : Has [Exception UniverseErr] e => BoxInt -> BoxInt -> App e ()
+requireBalancedSplit :
+  Has [Exception UniverseErr] e =>
+  (wA, wB : BoxInt) -> App e (Subset (BoxInt, BoxInt) (\p => isBalancedSplit p = True))
 requireBalancedSplit wA wB =
-  let net = wA + wB
-  in if net == 0
-       then pure ()
-       else throw (UnbalancedVacuumSplitError net)
+  case recognizeBy isBalancedSplit (wA, wB) of
+    Yes prf => pure (Element (wA, wB) prf)
+    No _    => throw (UnbalancedVacuumSplitError (wA + wB))
+
+||| Enforces a bounded `HorizonSpec` (`Rule 01`) via `recognizeBy isValidHorizonSpec` before probing `App1`.
+export
+requireValidHorizon :
+  Has [Exception UniverseErr] e =>
+  (spec : HorizonSpec) -> App e (Subset HorizonSpec (\h => isValidHorizonSpec h = True))
+requireValidHorizon spec =
+  case recognizeBy isValidHorizonSpec spec of
+    Yes prf => pure (Element spec prf)
+    No _    => throw (InvalidHorizonSpecError spec)
 
 --------------------------------------------------------------------------------
 -- 3. POLYNUMBER HORIZON CUTOFFS & GOH SPREAD STREAM FREEZE-OUT
