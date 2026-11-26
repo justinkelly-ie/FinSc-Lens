@@ -387,3 +387,137 @@ observeRotatedMoment3D :
   EvolutionState k ->
   Box BoxInt (Fin 3)
 observeRotatedMoment3D ax g r st = actMaxelR (rotorActionMaxel g r) (observeStateMoment3D ax st)
+
+--------------------------------------------------------------------------------
+-- 4. EMERGENT DYNAMICAL REGGE CURVATURE FROM CAUSAL `loadMaxel` PACING
+--------------------------------------------------------------------------------
+
+||| External intrinsic Regge vertex curvature readout on a 3-spoke star `(v0; v1, v2, v3)`:
+||| - `rvFaceQuadrea12/23/31` : Archimedes quadreas `A_i` of the 3 face triangles (`> 0` = valid non-degenerate faces)
+||| - `rvApexSpread12/23/31`  : exact rational apex spreads `s_i = A_i / (4 Q_a Q_b)` (`Proportion`)
+||| - `rvGramDet`             : exact `detSymMaxel3 (gramFromQuadrances3 ...)` (`> 0` spherical, `0` flat, `< 0` saddle)
+||| - `rvNormalizedDet`       : scale-free exact `Proportion` (`rvGramDet : (2 * paceScale)^6`)
+public export
+record ReggeVertexReport where
+  constructor MkReggeVertexReport
+  rvFaceQuadrea12 : BoxInt
+  rvFaceQuadrea23 : BoxInt
+  rvFaceQuadrea31 : BoxInt
+  rvApexSpread12  : Proportion
+  rvApexSpread23  : Proportion
+  rvApexSpread31  : Proportion
+  rvGramDet       : BoxInt
+  rvNormalizedDet : Proportion
+
+||| Sterling recognition predicate certifying 3 strictly non-degenerate face triangles (`A_i > 0`)
+||| and finite affine spread / curvature `Proportion`s (`den /= 0`).
+public export
+isValidReggeVertexReport : ReggeVertexReport -> Bool
+isValidReggeVertexReport r =
+  r.rvFaceQuadrea12 > 0 &&
+  r.rvFaceQuadrea23 > 0 &&
+  r.rvFaceQuadrea31 > 0 &&
+  isAffineRatio r.rvApexSpread12 &&
+  isAffineRatio r.rvApexSpread23 &&
+  isAffineRatio r.rvApexSpread31 &&
+  isAffineRatio r.rvNormalizedDet
+
+public export
+Eq ReggeVertexReport where
+  a == b =
+    a.rvFaceQuadrea12 == b.rvFaceQuadrea12 &&
+    a.rvFaceQuadrea23 == b.rvFaceQuadrea23 &&
+    a.rvFaceQuadrea31 == b.rvFaceQuadrea31 &&
+    a.rvApexSpread12 == b.rvApexSpread12 &&
+    a.rvApexSpread23 == b.rvApexSpread23 &&
+    a.rvApexSpread31 == b.rvApexSpread31 &&
+    a.rvGramDet == b.rvGramDet &&
+    a.rvNormalizedDet == b.rvNormalizedDet
+
+public export
+Show ReggeVertexReport where
+  show r =
+    "ReggeVertexReport(det=" ++ show r.rvGramDet ++
+    ", normDet=" ++ show r.rvNormalizedDet ++
+    ", faces=(" ++ show r.rvFaceQuadrea12 ++ "," ++ show r.rvFaceQuadrea23 ++ "," ++ show r.rvFaceQuadrea31 ++ ")" ++
+    ", spreads=(" ++ show r.rvApexSpread12 ++ "," ++ show r.rvApexSpread23 ++ "," ++ show r.rvApexSpread31 ++ "))"
+
+||| Dimension-polymorphic Euclidean quadrance `Q_blue(u, v) = sum_i (v_i - u_i)^2`
+||| over any `AxisBasis k` (`Space n` or `PureMultiset`), strictly via `Box` algebra.
+public export
+siteEuclideanQuadrance : AxisBasis k -> k -> k -> BoxInt
+siteEuclideanQuadrance ax u v =
+  let (MkHMSet bU) = ax.toSiteMSet u
+      (MkHMSet bV) = ax.toSiteMSet v
+      diff         = subBox bV bU
+  in diff <.> diff
+
+||| Exact Bresenham pacing tick budget (`m0 * lagDiv`, or `1` when load pacing is disabled).
+public export
+opticalPaceScale : DynamicsParams -> BoxInt
+opticalPaceScale p =
+  if p.dpLagDiv > 0 && p.dpGenM0 > 0
+    then p.dpGenM0 * p.dpLagDiv
+    else 1
+
+||| Effective Bresenham optical edge quadrance `(2 * B + max 0 (linkLoadSum load u v))^2 * Q_blue(u, v)`.
+||| Scales uniformly under constant background load (preserving `det(2G) = 0`) and stretches radial
+||| spokes near localized `loadMaxel` mass cores.
+public export
+opticalEdgeQuadrance : Ord k => AxisBasis k -> DynamicsParams -> Maxel BoxInt k k SymForm -> k -> k -> BoxInt
+opticalEdgeQuadrance ax p loadM u v =
+  let base2B = 2 * opticalPaceScale p
+      rawC   = if p.dpLagDiv <= 0 then MkBoxInt 0 else linkLoadSum loadM u v
+      c      = if rawC < 0 then MkBoxInt 0 else rawC
+      nFac   = base2B + c
+  in nFac * nFac * siteEuclideanQuadrance ax u v
+
+||| Canonical flat 2D centroid star `(v0; v1, v2, v3)` around `c = [cx, cy]` at integer radius `r >= 1`:
+||| Euclidean quadrances `(4, 5, 5; 13, 16, 13) * r^2` with `det(2G) = 0` identically.
+public export
+reggeStar2D : AxisBasis k -> (cx, cy, r : SignedCoord) -> (k, k, k, k)
+reggeStar2D ax cx cy r =
+  ( mkCoord ax [cx, cy]
+  , mkCoord ax [cx + r + r, cy]
+  , mkCoord ax [cx - r, cy + r + r]
+  , mkCoord ax [cx - r, cy - r - r] )
+
+||| Canonical flat 3D equilateral `120 deg` star in plane `x + y + z = const` around `c = [cx, cy, cz]`
+||| at integer radius `r >= 1`: Euclidean quadrances `(2, 2, 2; 6, 6, 6) * r^2` with `det(2G) = 0` identically.
+public export
+reggeStar3D : AxisBasis k -> (cx, cy, cz, r : SignedCoord) -> (k, k, k, k)
+reggeStar3D ax cx cy cz r =
+  ( mkCoord ax [cx, cy, cz]
+  , mkCoord ax [cx + r, cy - r, cz]
+  , mkCoord ax [cx, cy + r, cz - r]
+  , mkCoord ax [cx - r, cy, cz + r] )
+
+||| External intrinsic Regge vertex curvature readout on any 3-spoke star `(v0; v1, v2, v3)`
+||| derived strictly from `st.loadMaxel` and `DynamicsParams` (`st` untouched).
+public export
+observeReggeVertexStar :
+  Ord k =>
+  AxisBasis k ->
+  DynamicsParams ->
+  (v0, v1, v2, v3 : k) ->
+  EvolutionState k ->
+  ReggeVertexReport
+observeReggeVertexStar ax p v0 v1 v2 v3 st =
+  let qEdge = opticalEdgeQuadrance ax p st.loadMaxel
+      q01   = qEdge v0 v1
+      q02   = qEdge v0 v2
+      q03   = qEdge v0 v3
+      q12   = qEdge v1 v2
+      q23   = qEdge v2 v3
+      q31   = qEdge v3 v1
+      a12   = archimedesQuadrea q01 q02 q12
+      a23   = archimedesQuadrea q02 q03 q23
+      a31   = archimedesQuadrea q03 q01 q31
+      s12   = spreadFromQuadrances q01 q02 q12
+      s23   = spreadFromQuadrances q02 q03 q23
+      s31   = spreadFromQuadrances q03 q01 q31
+      detG  = detSymMaxel3 (gramFromQuadrances3 q01 q02 q03 q12 q23 q31)
+      b2    = 2 * opticalPaceScale p
+      b2Sq  = b2 * b2
+      b2Six = b2Sq * b2Sq * b2Sq
+  in MkReggeVertexReport a12 a23 a31 s12 s23 s31 detG (MkProportion detG b2Six)
