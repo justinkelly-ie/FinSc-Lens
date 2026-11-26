@@ -17,20 +17,20 @@ import FinScLens.Horizons
 public export
 record ExcitationReport where
   constructor MkExcitationReport
-  meanXMilli      : Integer
-  meanYMilli      : Integer
-  fluxYAccum      : Integer
-  initQuadrance   : Integer
-  finalQuadrance  : Integer
-  maxQuadrance    : Integer
-  polarityNetSum  : Integer
+  meanX           : Proportion
+  meanY           : Proportion
+  fluxYAccum      : BoxInt
+  initQuadrance   : BoxInt
+  finalQuadrance  : BoxInt
+  maxQuadrance    : BoxInt
+  polarityNetSum  : BoxInt
   activeWorkSteps : Nat
 
 public export
 Eq ExcitationReport where
   a == b =
-    a.meanXMilli == b.meanXMilli &&
-    a.meanYMilli == b.meanYMilli &&
+    a.meanX == b.meanX &&
+    a.meanY == b.meanY &&
     a.fluxYAccum == b.fluxYAccum &&
     a.initQuadrance == b.initQuadrance &&
     a.finalQuadrance == b.finalQuadrance &&
@@ -41,8 +41,8 @@ Eq ExcitationReport where
 public export
 Show ExcitationReport where
   show r =
-    "ExcitationReport(meanXMilli=" ++ show r.meanXMilli ++
-    ", meanYMilli=" ++ show r.meanYMilli ++
+    "ExcitationReport(meanX=" ++ show r.meanX ++
+    ", meanY=" ++ show r.meanY ++
     ", fluxYAccum=" ++ show r.fluxYAccum ++
     ", initQ=" ++ show r.initQuadrance ++
     ", finalQ=" ++ show r.finalQuadrance ++
@@ -54,11 +54,11 @@ Show ExcitationReport where
 public export
 record SelfTrapReport where
   constructor MkSelfTrapReport
-  initQuadrance  : Integer
-  finalQuadrance : Integer
-  maxQuadrance   : Integer
-  coreFracPct    : Integer
-  netSignedSum   : Integer
+  initQuadrance  : BoxInt
+  finalQuadrance : BoxInt
+  maxQuadrance   : BoxInt
+  coreShare      : Proportion
+  netSignedSum   : BoxInt
   workSteps      : Nat
 
 public export
@@ -67,7 +67,7 @@ Eq SelfTrapReport where
     a.initQuadrance == b.initQuadrance &&
     a.finalQuadrance == b.finalQuadrance &&
     a.maxQuadrance == b.maxQuadrance &&
-    a.coreFracPct == b.coreFracPct &&
+    a.coreShare == b.coreShare &&
     a.netSignedSum == b.netSignedSum &&
     a.workSteps == b.workSteps
 
@@ -76,7 +76,7 @@ Show SelfTrapReport where
   show r =
     "SelfTrapReport(Q=" ++ show r.initQuadrance ++ "->" ++ show r.finalQuadrance ++
     ", maxQ=" ++ show r.maxQuadrance ++
-    ", coreFrac=" ++ show r.coreFracPct ++ "%" ++
+    ", coreShare=" ++ show r.coreShare ++
     ", net=" ++ show r.netSignedSum ++
     ", work=" ++ show r.workSteps ++ ")"
 
@@ -84,24 +84,24 @@ Show SelfTrapReport where
 public export
 record TwoBodyReport where
   constructor MkTwoBodyReport
-  tbBotYMilli       : Integer
-  tbTopYMilli       : Integer
-  tbSingleBotYMilli : Integer
-  tbBotSy           : Integer
-  tbTopSy           : Integer
-  tbSingleBotSy     : Integer
-  tbLinearBotSy     : Integer
-  tbInitQ           : Integer
-  tbFinalQ          : Integer
-  tbMaxQ            : Integer
-  tbNetSum          : Integer
+  tbBotY        : Proportion
+  tbTopY        : Proportion
+  tbSingleBotY  : Proportion
+  tbBotSy       : BoxInt
+  tbTopSy       : BoxInt
+  tbSingleBotSy : BoxInt
+  tbLinearBotSy : BoxInt
+  tbInitQ       : BoxInt
+  tbFinalQ      : BoxInt
+  tbMaxQ        : BoxInt
+  tbNetSum      : BoxInt
 
 public export
 Eq TwoBodyReport where
   a == b =
-    a.tbBotYMilli == b.tbBotYMilli &&
-    a.tbTopYMilli == b.tbTopYMilli &&
-    a.tbSingleBotYMilli == b.tbSingleBotYMilli &&
+    a.tbBotY == b.tbBotY &&
+    a.tbTopY == b.tbTopY &&
+    a.tbSingleBotY == b.tbSingleBotY &&
     a.tbBotSy == b.tbBotSy &&
     a.tbTopSy == b.tbTopSy &&
     a.tbSingleBotSy == b.tbSingleBotSy &&
@@ -114,8 +114,8 @@ Eq TwoBodyReport where
 public export
 Show TwoBodyReport where
   show r =
-    "TwoBodyReport(dy=" ++ show (r.tbBotYMilli - r.tbSingleBotYMilli) ++
-    ", yBot=" ++ show r.tbBotYMilli ++ ", yTop=" ++ show r.tbTopYMilli ++
+    "TwoBodyReport(dy=" ++ show (subProportion r.tbBotY r.tbSingleBotY) ++
+    ", yBot=" ++ show r.tbBotY ++ ", yTop=" ++ show r.tbTopY ++
     ", SyBot=" ++ show r.tbBotSy ++ ", SyTop=" ++ show r.tbTopSy ++
     " vs 1exc=" ++ show r.tbSingleBotSy ++ ", lin=" ++ show r.tbLinearBotSy ++
     ", Q=" ++ show r.tbInitQ ++ "->" ++ show r.tbFinalQ ++
@@ -127,13 +127,13 @@ public export
 record CausalLightConeReport where
   constructor MkCausalLightConeReport
   clSpacelikeExact : Bool
-  clEarlyVacX      : Integer
-  clEarlyDpX       : Integer
-  clEarlyDpSy      : Integer
-  clLateVacX       : Integer
-  clLateDpX        : Integer
-  clLateDpY        : Integer
-  clLateDpSy       : Integer
+  clEarlyVacX      : Proportion
+  clEarlyDpX       : Proportion
+  clEarlyDpSy      : BoxInt
+  clLateVacX       : Proportion
+  clLateDpX        : Proportion
+  clLateDpY        : Proportion
+  clLateDpSy       : BoxInt
 
 public export
 Eq CausalLightConeReport where
@@ -158,16 +158,16 @@ Show CausalLightConeReport where
 public export
 record AnisotropicStressReport where
   constructor MkAnisotropicStressReport
-  asQuadHoriz    : Integer
-  asQuadVert     : Integer
-  asProbeHorizX  : Integer
-  asProbeHorizY  : Integer
-  asProbeHorizSy : Integer
-  asProbeVertX   : Integer
-  asProbeVertY   : Integer
-  asProbeVertSy  : Integer
+  asQuadHoriz    : BoxInt
+  asQuadVert     : BoxInt
+  asProbeHorizX  : Proportion
+  asProbeHorizY  : Proportion
+  asProbeHorizSy : BoxInt
+  asProbeVertX   : Proportion
+  asProbeVertY   : Proportion
+  asProbeVertSy  : BoxInt
   asSymLoadOk    : Bool
-  asNetSum       : Integer
+  asNetSum       : BoxInt
 
 public export
 Eq AnisotropicStressReport where
@@ -190,7 +190,7 @@ Show AnisotropicStressReport where
     ", Q_V=" ++ show r.asQuadVert ++
     ", probeH=(" ++ show r.asProbeHorizX ++ "," ++ show r.asProbeHorizY ++ ",Sy=" ++ show r.asProbeHorizSy ++ ")" ++
     ", probeV=(" ++ show r.asProbeVertX ++ "," ++ show r.asProbeVertY ++ ",Sy=" ++ show r.asProbeVertSy ++ ")" ++
-    ", dX=" ++ show (r.asProbeHorizX - r.asProbeVertX) ++
+    ", dX=" ++ show (subProportion r.asProbeHorizX r.asProbeVertX) ++
     ", sym=" ++ show r.asSymLoadOk ++
     ", net=" ++ show r.asNetSum ++ ")"
 
@@ -215,13 +215,13 @@ canonAnyLinkStart ax pol a b =
   findBox (\axKey, _ => canonLinkStart (ax.axisStep axKey) a b)
           (activeAxisAtomsOf ax pol)
 
-||| Percentage of `quadranceOf st.polarityMaxel` localized inside the box `[lo..hi]`.
+||| Exact rational share `[coreQ : totQ]` of `quadranceOf st.polarityMaxel` localized inside `[lo..hi]`.
 public export
-fieldCoreQuadranceFrac : {n : Nat} -> GroupCoord k => AxisBasis k -> (lo, hi : Space n) -> EvolutionState k -> Integer
-fieldCoreQuadranceFrac ax lo hi st =
+fieldCoreQuadranceShare : {n : Nat} -> GroupCoord k => AxisBasis k -> (lo, hi : Space n) -> EvolutionState k -> Proportion
+fieldCoreQuadranceShare ax lo hi st =
   let inCore = inSpaceBox ax lo hi
       qM     = quadranceOf st.polarityMaxel
-      totQ   = unwrapBox (sumStoredMaxel qM)
+      totQ   = sumStoredMaxel qM
       cM     = filterMaxel (\a, b =>
                              if a == b
                                then inCore a
@@ -229,8 +229,23 @@ fieldCoreQuadranceFrac ax lo hi st =
                                       Just s  => inCore s
                                       Nothing => False)
                            qM
-      cTot   = unwrapBox (sumStoredMaxel cM)
-  in if totQ <= 0 then 0 else divIntegerPos (cTot * 100) totQ
+      cTot   = sumStoredMaxel cM
+  in if totQ <= 0 then MkProportion 0 1 else MkProportion cTot totQ
+
+public export
+bandMomentsWithPol :
+  GroupCoord k =>
+  AxisBasis k ->
+  (axisT : PureMultiset) ->
+  (tLo, tHi : BoxInt) ->
+  Maxel BoxInt k k DiagAntisymForm ->
+  (Box BoxInt k, BoxInt, BoxInt, BoxInt)
+bandMomentsWithPol ax axisT tLo tHi dPol =
+  let bandPol    = filterBox (\a => let t = coordAlong ax axisT a in t >= tLo && t <= tHi) (diagBox dPol)
+      qpBox      = bandPol .*. bandPol
+      accQPol    = totalMassBox qpBox
+      momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
+  in (bandPol, lookupKeyHMSet (axisAtom 0) momentMSet, lookupKeyHMSet axisT momentMSet, accQPol)
 
 ||| Transverse-axis (`axisT`, `tLo <= t <= tHi`) background-subtracted excitation readout,
 ||| composing `diagBox`, `offDiagMaxel`, `flattenHMSetBox`, and `<.> (contractRMaxel dFluxT <+> contractLMaxel dFluxT)`.
@@ -239,26 +254,21 @@ measureBandAxis :
   GroupCoord k =>
   AxisBasis k ->
   (axisT : PureMultiset) ->
-  (tLo, tHi : Integer) ->
+  (tLo, tHi : BoxInt) ->
   (st, bgSt : EvolutionState k) ->
-  (initQ, finalQ, maxQ : Integer) ->
+  (initQ, finalQ, maxQ : BoxInt) ->
   (workSteps : Nat) ->
   ExcitationReport
 measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
-  let dPol       = subM st.polarityMaxel bgSt.polarityMaxel
-      stepT      = ax.axisStep axisT
-      bandPol    = filterBox (\a => let t = coordAlong ax axisT a in t >= tLo && t <= tHi) (diagBox dPol)
-      dFluxT     = filterMaxel (\x, y => y == combine x stepT) (toGeneralMaxel (offDiagMaxel dPol))
-      qpBox      = bandPol .*. bandPol
-      accQPol    = unwrapBox (totalMassBox qpBox)
-      momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
-      wX         = lookupKeyHMSet (axisAtom 0) momentMSet
-      wT         = lookupKeyHMSet axisT momentMSet
-      accFlux    = unwrapBox (bandPol <.> (contractRMaxel dFluxT <+> contractLMaxel dFluxT))
-      mxM        = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wX * 1000) accQPol)
-      mtM        = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wT * 1000) accQPol)
-      net        = statePolarityNet st + stateFluxNet st
-  in MkExcitationReport mxM mtM accFlux initQ finalQ maxQ net workSteps
+  let dPol                   = subM st.polarityMaxel bgSt.polarityMaxel
+      stepT                  = ax.axisStep axisT
+      (bandPol, wX, wT, accQPol) = bandMomentsWithPol ax axisT tLo tHi dPol
+      dFluxT                 = filterMaxel (\x, y => y == combine x stepT) (toGeneralMaxel (offDiagMaxel dPol))
+      accFlux                = bandPol <.> (contractRMaxel dFluxT <+> contractLMaxel dFluxT)
+      mx                     = if accQPol == 0 then MkProportion 0 1 else MkProportion wX accQPol
+      mt                     = if accQPol == 0 then MkProportion 0 1 else MkProportion wT accQPol
+      net                    = statePolarityNet st + stateFluxNet st
+  in MkExcitationReport mx mt accFlux initQ finalQ maxQ net workSteps
 
 ||| Bit-for-bit check that `(st - bgSt)` matches `vacSt` identically on every polarity entry
 ||| inside the hyperbox `[lo..hi]` (confirming zero action-at-a-distance outside the `c = 1` cone).
@@ -277,12 +287,12 @@ bandsEqualInBox ax lo hi st bgSt vacSt =
 ||| Quadrupole polarization between axes `axA` and `axB`:
 ||| `sum_{a} L(a, a + step_A) - sum_{a} L(a, a + step_B)`.
 public export
-loadQuadrupoleAxes : GroupCoord k => AxisBasis k -> (axA, axB : PureMultiset) -> Maxel BoxInt k k SymForm -> Integer
+loadQuadrupoleAxes : GroupCoord k => AxisBasis k -> (axA, axB : PureMultiset) -> Maxel BoxInt k k SymForm -> BoxInt
 loadQuadrupoleAxes ax axA axB loadM =
   let sA = ax.axisStep axA
       sB = ax.axisStep axB
   in foldStoredMaxel
-       (\a, b, (MkBoxInt w), acc =>
+       (\a, b, w, acc =>
           case canonLinkStart sA a b of
             Just _  => acc + w
             Nothing => case canonLinkStart sB a b of
@@ -294,35 +304,19 @@ loadQuadrupoleAxes ax axA axB loadM =
 -- 3. PROJECTIVE PROPORTIONS, DEFLECTION SPREAD & EXTERNAL ROTOR-FRAME READOUTS
 --------------------------------------------------------------------------------
 
-public export
-bandMoments :
-  GroupCoord k =>
-  AxisBasis k ->
-  (axisT : PureMultiset) ->
-  (tLo, tHi : Integer) ->
-  (st, bgSt : EvolutionState k) ->
-  (BoxInt, BoxInt, BoxInt)
-bandMoments ax axisT tLo tHi st bgSt =
-  let dPol       = subM st.polarityMaxel bgSt.polarityMaxel
-      bandPol    = filterBox (\a => let t = coordAlong ax axisT a in t >= tLo && t <= tHi) (diagBox dPol)
-      qpBox      = bandPol .*. bandPol
-      accQPol    = totalMassBox qpBox
-      momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
-  in (lookupKeyHMSet (axisAtom 0) momentMSet, lookupKeyHMSet axisT momentMSet, accQPol)
-
 ||| Exact rational deflection spread between the `+X` beam direction and shifted centroid `(wX, wT - t0 * accQ)`.
 public export
 measureBandDeflectionSpread :
   GroupCoord k =>
   AxisBasis k ->
   (axisT : PureMultiset) ->
-  (tLo, tHi : Integer) ->
-  (t0 : Integer) ->
+  (tLo, tHi : BoxInt) ->
+  (t0 : BoxInt) ->
   (st, bgSt : EvolutionState k) ->
   Proportion
 measureBandDeflectionSpread ax axisT tLo tHi t0 st bgSt =
-  let (wX, wT, accQ) = bandMoments ax axisT tLo tHi st bgSt
-      dW             = wT - MkBoxInt t0 * accQ
+  let (_, wX, wT, accQ) = bandMomentsWithPol ax axisT tLo tHi (subM st.polarityMaxel bgSt.polarityMaxel)
+      dW                = wT - t0 * accQ
   in spreadBetween blueMetric (vec2Box 1 0) (vec2Box wX dW)
 
 ||| Extracts the 3D quadrance-weighted spatial moment vector `(M0, M1, M2)` over `Fin 3` externally.

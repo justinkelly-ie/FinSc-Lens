@@ -2,7 +2,6 @@ module FinScLens.Horizons
 
 import Control.App
 import Data.DPair
-import Data.List
 import Data.Maybe
 import FinScBox.BoxInt
 import FinScBox.Interfaces
@@ -31,7 +30,7 @@ data CloseOutcome : Type where
   ||| All opposing polarities annihilated back to the 0D vacuum root `[]`.
   CleanVacuumCollapse : CloseOutcome
   ||| System froze at a static relic with exact global signed multiplicity sum and active work.
-  FrozenAtHorizon     : (staticTime : Time) -> (canonicalText : String) -> (workSteps : Nat) -> (globalNetSum : Integer) -> CloseOutcome
+  FrozenAtHorizon     : (staticTime : Time) -> (canonicalText : String) -> (workSteps : Nat) -> (globalNetSum : BoxInt) -> CloseOutcome
 
 public export
 Eq CloseOutcome where
@@ -47,7 +46,7 @@ Show CloseOutcome where
     "FrozenAtHorizon(time=" ++ show t ++ ", work=" ++ show work ++ ", net=" ++ show net ++ ", text=" ++ txt ++ ")"
 
 public export
-closeNetSum : CloseOutcome -> Integer
+closeNetSum : CloseOutcome -> BoxInt
 closeNetSum CleanVacuumCollapse       = 0
 closeNetSum (FrozenAtHorizon _ _ _ g) = g
 
@@ -87,7 +86,7 @@ classifyHereditaryClose root =
   if root == emptyHMSet
     then CleanVacuumCollapse
     else let work = rootActivePeelWork root
-             net  = unwrapBox (sumHMSet root)
+             net  = sumHMSet root
              txt  = renderPureMultiset root
              stT  = StaticTime 0 (cast work)
          in FrozenAtHorizon stT txt work net
@@ -116,7 +115,7 @@ Show HorizonSpec where
 public export
 data UniverseErr : Type where
   InvalidMultisetTextError   : (input : String) -> UniverseErr
-  UnbalancedVacuumSplitError : (netResidual : Integer) -> UniverseErr
+  UnbalancedVacuumSplitError : (netResidual : BoxInt) -> UniverseErr
   HorizonFrozenError         : (horizonTime : Time) -> (reason : StreamFreezeReason) -> (cycles : Nat) -> UniverseErr
 
 public export
@@ -198,7 +197,7 @@ validateAndDecodeSetting txt =
 
 ||| Enforces global 0D zero-sum neutrality (`wA + wB == 0`) at the black-box boundary.
 export
-requireBalancedSplit : Has [Exception UniverseErr] e => Integer -> Integer -> App e ()
+requireBalancedSplit : Has [Exception UniverseErr] e => BoxInt -> BoxInt -> App e ()
 requireBalancedSplit wA wB =
   let net = wA + wB
   in if net == 0
@@ -220,12 +219,12 @@ mkPolyBoundHorizonSpec polyOrder retroDepth =
 public export
 streamGohDivisorFactors : (n : Nat) -> TimeStream OpenFuture Configuration
 streamGohDivisorFactors n =
-  let tbl = gohPsiTableUpTo n
+  let tbl = gohPsiMaxelUpTo n
   in MkTimeStream 1 (\d =>
        if d == 0 || d > n
          then StreamDone
          else if dividesNatPos d n
-           then StreamYield (fromMaybe 1 (lookup d tbl))
+           then StreamYield (lookupGohPsi d tbl)
            else StreamSkip)
 
 ||| Freezes `streamGohDivisorFactors n` via Cauchy multiplication (`*`) under `selfBoundOfHMSet (spreadZHMSet n)`.
