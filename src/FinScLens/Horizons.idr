@@ -20,7 +20,7 @@ import FinScDynamics
 -- 1. TOPOLOGICAL RELICS, CLOSE OUTCOMES, HORIZON SPECS & BOUNDARY EXCEPTIONS
 --------------------------------------------------------------------------------
 
-||| Quenched unsigned `MultisetBit` skeleton observed after `GohFuel` exhaustion.
+||| Quenched unsigned `MultisetBit` skeleton observed after `GohBound` exhaustion.
 public export
 TopologicalRelic : Type
 TopologicalRelic = HereditaryMSet MultisetBit
@@ -161,7 +161,7 @@ observeHorizonFreeze spec workPerCycle =
   let (relic, _) =
         freezeStateStreamWith
           spec.retroDepth
-          (MkGohFuel {capacity = spec.budgetCap} spec.budgetCap)
+          (MkGohBound {capacity = spec.budgetCap} spec.budgetCap)
           20
           (\u => if workPerCycle == 0 then (StreamSkip, 0, 1) else (StreamYield u, workPerCycle, 0))
           ()
@@ -241,11 +241,11 @@ requireBalancedSplit wA wB =
 -- 3. POLYNUMBER HORIZON CUTOFFS & GOH SPREAD STREAM FREEZE-OUT
 --------------------------------------------------------------------------------
 
-||| Derives an observer `HorizonSpec` intrinsically from `selfFuelOfHMSet (spreadZHMSet polyOrder)`.
+||| Derives an observer `HorizonSpec` intrinsically from `selfBoundOfHMSet (spreadZHMSet polyOrder)`.
 public export
-mkPolyFuelHorizonSpec : (polyOrder, retroDepth : Nat) -> HorizonSpec
-mkPolyFuelHorizonSpec polyOrder retroDepth =
-  let (_, stepBudget) = selfFuelOfHMSet (spreadZHMSet polyOrder)
+mkPolyBoundHorizonSpec : (polyOrder, retroDepth : Nat) -> HorizonSpec
+mkPolyBoundHorizonSpec polyOrder retroDepth =
+  let (_, stepBudget) = selfBoundOfHMSet (spreadZHMSet polyOrder)
   in MkHorizonSpec (BoundedTime stepBudget) retroDepth stepBudget
 
 ||| Streams irreducible Cigler-Herbig spread polynomial factors `Psi_d(x)` across ticks `d = 1..n`.
@@ -260,13 +260,13 @@ streamGohDivisorFactors n =
            then StreamYield (fromMaybe 1 (lookup d tbl))
            else StreamSkip)
 
-||| Freezes `streamGohDivisorFactors n` via Cauchy multiplication (`*`) under `selfFuelOfHMSet (spreadZHMSet n)`.
+||| Freezes `streamGohDivisorFactors n` via Cauchy multiplication (`*`) under `selfBoundOfHMSet (spreadZHMSet n)`.
 public export
 freezeGohSpreadStream : (n : Nat) -> (Configuration, Nat, Nat, Nat, StreamFreezeReason)
 freezeGohSpreadStream n =
-  let (MkAnyGohFuel _ yFuel, sBudget) = selfFuelOfHMSet (spreadZHMSet n)
-      relic = freezeTimeStreamWith 0 yFuel sBudget (*) 1 (streamGohDivisorFactors n)
-  in (relic.relicState, yFuel.fuelSteps, relic.yieldsConsumed, relic.stepsConsumed, relic.freezeReason)
+  let (MkAnyGohBound _ yBound, sBudget) = selfBoundOfHMSet (spreadZHMSet n)
+      relic = freezeTimeStreamWith 0 yBound sBudget (*) 1 (streamGohDivisorFactors n)
+  in (relic.relicState, yBound.boundSteps, relic.yieldsConsumed, relic.stepsConsumed, relic.freezeReason)
 
 --------------------------------------------------------------------------------
 -- 4. COMPILE-TIME QTT 0 PROBE, CODEC & GOH SPREAD THEOREMS
