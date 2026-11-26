@@ -12,4 +12,5 @@ sourcedir = "src"
 
 modules = FinScLens.Horizons
         , FinScLens.Measurements
+        , FinScLens.Lab
         , FinScLens
