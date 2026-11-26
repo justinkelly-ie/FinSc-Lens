@@ -12,7 +12,7 @@ import FinScBox.Views
 import FinScBox.QuadraticExchange
 import FinScBox.MultisetCodec
 import FinScBox.BlackRedZoom
-import FinScDynamics
+import FinScSpace
 
 %default total
 
@@ -144,6 +144,15 @@ record HorizonObservationReport where
   cyclesCompleted : Nat
   streamWorkUsed  : Nat
   freezeReason    : StreamFreezeReason
+
+public export
+Eq HorizonObservationReport where
+  a == b =
+    a.horizonTime == b.horizonTime &&
+    a.retroDepth == b.retroDepth &&
+    a.cyclesCompleted == b.cyclesCompleted &&
+    a.streamWorkUsed == b.streamWorkUsed &&
+    a.freezeReason == b.freezeReason
 
 public export
 Show HorizonObservationReport where

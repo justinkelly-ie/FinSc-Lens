@@ -1,12 +1,12 @@
 package FinSc-Lens
-version = 0.2.0
+version = 0.3.0
 authors = "Justin"
-brief   = "FinSc-Lens: Non-Perturbing Horizons, Probes, Topological Relics & Readout Library"
+brief   = "FinSc-Lens: Non-Perturbing Horizons, Probes, Projective/Frame Readouts & Relics"
 
 depends = base >= 0.8.0
         , linear
         , FinSc-Box
-        , FinSc-Dynamics
+        , FinSc-Space
 
 sourcedir = "src"
 

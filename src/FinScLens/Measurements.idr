@@ -4,7 +4,7 @@ import FinScBox.BoxInt
 import FinScBox.Interfaces
 import FinScBox.Box
 import FinScBox.HereditaryMSet
-import FinScDynamics
+import FinScSpace
 import FinScLens.Horizons
 
 %default total
@@ -289,3 +289,72 @@ loadQuadrupoleAxes ax axA axB loadM =
                          Just _  => acc - w
                          Nothing => acc)
        0 loadM
+
+--------------------------------------------------------------------------------
+-- 3. PROJECTIVE PROPORTIONS, DEFLECTION SPREAD & EXTERNAL ROTOR-FRAME READOUTS
+--------------------------------------------------------------------------------
+
+public export
+bandMoments :
+  GroupCoord k =>
+  AxisBasis k ->
+  (axisT : PureMultiset) ->
+  (tLo, tHi : Integer) ->
+  (st, bgSt : EvolutionState k) ->
+  (BoxInt, BoxInt, BoxInt)
+bandMoments ax axisT tLo tHi st bgSt =
+  let dPol       = subM st.polarityMaxel bgSt.polarityMaxel
+      bandPol    = filterBox (\a => let t = coordAlong ax axisT a in t >= tLo && t <= tHi) (diagBox dPol)
+      qpBox      = bandPol .*. bandPol
+      accQPol    = totalMassBox qpBox
+      momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
+  in (lookupKeyHMSet (axisAtom 0) momentMSet, lookupKeyHMSet axisT momentMSet, accQPol)
+
+||| Exact division-free projective centroid proportions `([wX : accQ], [wT : accQ])` on `[tLo..tHi]`.
+public export
+measureBandCentroidProportions :
+  GroupCoord k =>
+  AxisBasis k ->
+  (axisT : PureMultiset) ->
+  (tLo, tHi : Integer) ->
+  (st, bgSt : EvolutionState k) ->
+  (Proportion, Proportion)
+measureBandCentroidProportions ax axisT tLo tHi st bgSt =
+  let (wX, wT, accQ) = bandMoments ax axisT tLo tHi st bgSt
+  in (MkProportion wX accQ, MkProportion wT accQ)
+
+||| Exact rational deflection spread between the `+X` beam direction and shifted centroid `(wX, wT - t0 * accQ)`.
+public export
+measureBandDeflectionSpread :
+  GroupCoord k =>
+  AxisBasis k ->
+  (axisT : PureMultiset) ->
+  (tLo, tHi : Integer) ->
+  (t0 : Integer) ->
+  (st, bgSt : EvolutionState k) ->
+  Proportion
+measureBandDeflectionSpread ax axisT tLo tHi t0 st bgSt =
+  let (wX, wT, accQ) = bandMoments ax axisT tLo tHi st bgSt
+      dW             = wT - MkBoxInt t0 * accQ
+  in spreadBetween blueMetric2 (vec2Box 1 0) (vec2Box wX dW)
+
+||| Extracts the 3D quadrance-weighted spatial moment vector `(M0, M1, M2)` over `Fin 3` externally.
+public export
+observeStateMoment3D : Ord k => AxisBasis k -> EvolutionState k -> Box BoxInt (Fin 3)
+observeStateMoment3D ax st =
+  let qDiag      = diagBox (quadranceOf st.polarityMaxel)
+      momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qDiag)
+  in vec3Box (lookupKeyHMSet (axisAtom 0) momentMSet)
+             (lookupKeyHMSet (axisAtom 1) momentMSet)
+             (lookupKeyHMSet (axisAtom 2) momentMSet)
+
+||| External rotor-frame observation `actMaxelR (rotorActionMaxel g r)` on the 3D state moment (`st` untouched).
+public export
+observeRotatedMoment3D :
+  Ord k =>
+  AxisBasis k ->
+  Maxel BoxInt (Fin 3) (Fin 3) SymForm ->
+  Rotor ->
+  EvolutionState k ->
+  Box BoxInt (Fin 3)
+observeRotatedMoment3D ax g r st = actMaxelR (rotorActionMaxel g r) (observeStateMoment3D ax st)
