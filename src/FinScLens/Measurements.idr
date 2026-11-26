@@ -199,21 +199,29 @@ Show AnisotropicStressReport where
 --------------------------------------------------------------------------------
 
 public export
-isCoreSite : AxisBasis k -> k -> Bool
-isCoreSite ax pos =
-  let x = coordAlong ax (axisNat 0) pos
-      y = coordAlong ax (axisNat 1) pos
-  in x >= (-1) && x <= 1 && y >= (-1) && y <= 2
+inSpaceBox : {n : Nat} -> AxisBasis k -> (lo, hi : Space n) -> k -> Bool
+inSpaceBox ax lo hi pos = go Z lo hi (ax.toSiteMSet pos)
+  where
+    go : {0 m : Nat} -> Nat -> Space m -> Space m -> PureMultiset -> Bool
+    go _   []        []        _ = True
+    go idx (l :: ls) (h :: hs) s =
+      let c : SignedCoord
+          c = cast (lookupKeyHMSet (axisNat idx) s)
+      in c >= l && c <= h && go (S idx) ls hs s
 
 public export
-canonAnyLinkStart : Ord k => AxisBasis k -> Maxel BoxInt k k DiagAntisymForm -> k -> k -> Maybe k
+isCoreSite : AxisBasis k -> k -> Bool
+isCoreSite ax = inSpaceBox ax [-1, -1] [1, 2]
+
+public export
+canonAnyLinkStart : GroupCoord k => AxisBasis k -> Maxel BoxInt k k DiagAntisymForm -> k -> k -> Maybe k
 canonAnyLinkStart ax pol a b =
-  findBox (\axKey, _ => canonLinkStart ax (ax.axisStep axKey) a b)
+  findBox (\axKey, _ => canonLinkStart (ax.axisStep axKey) a b)
           (activeAxisAtomsOf ax pol)
 
 ||| Percentage of `quadranceOf st.polarityMaxel` localized inside `[-1..1] x [-1..2]`.
 public export
-fieldCoreQuadranceFrac : Ord k => AxisBasis k -> EvolutionState k -> Integer
+fieldCoreQuadranceFrac : GroupCoord k => AxisBasis k -> EvolutionState k -> Integer
 fieldCoreQuadranceFrac ax st =
   let qM   = quadranceOf st.polarityMaxel
       totQ = unwrapBox (sumStoredMaxel qM)
@@ -227,34 +235,11 @@ fieldCoreQuadranceFrac ax st =
       cTot = unwrapBox (sumStoredMaxel cM)
   in if totQ <= 0 then 0 else divIntegerPos (cTot * 100) totQ
 
-public export
-extractBandPolarityAndFluxAxis :
-  Ord k =>
-  AxisBasis k ->
-  (axisT : PureMultiset) ->
-  (tLo, tHi : Integer) ->
-  Maxel BoxInt k k DiagAntisymForm ->
-  (Box BoxInt k, Box BoxInt (k, k))
-extractBandPolarityAndFluxAxis ax axisT tLo tHi pol =
-  let stepT = ax.axisStep axisT
-  in foldStoredMaxel
-       (\a, b, w, (bp, df) =>
-          if a == b
-            then let t = coordAlong ax axisT a
-                 in if t >= tLo && t <= tHi then (setBox a w bp, df) else (bp, df)
-            else if b == ax.shiftAdd a stepT
-              then (bp, setBox (a, b) w df)
-              else if a == ax.shiftAdd b stepT
-                then (bp, setBox (b, a) (negWeight w) df)
-                else (bp, df))
-       (BoxLeaf, BoxLeaf) pol
-
 ||| Transverse-axis (`axisT`, `tLo <= t <= tHi`) background-subtracted excitation readout,
-||| extracting spatial moments via `flattenHMSetBox (mapBox ax.toSiteMSet qpBox)`
-||| and transverse flux correlation via `bandPol <.> (contractRBox dFluxT <+> contractLBox dFluxT)`.
+||| composing `diagBox`, `offDiagMaxel`, `flattenHMSetBox`, and `<.> (contractRMaxel dFluxT <+> contractLMaxel dFluxT)`.
 public export
 measureBandAxis :
-  Ord k =>
+  GroupCoord k =>
   AxisBasis k ->
   (axisT : PureMultiset) ->
   (tLo, tHi : Integer) ->
@@ -263,52 +248,47 @@ measureBandAxis :
   (workSteps : Nat) ->
   ExcitationReport
 measureBandAxis ax axisT tLo tHi st bgSt initQ finalQ maxQ workSteps =
-  let dPol              = subMaxel st.polarityMaxel bgSt.polarityMaxel
-      (bandPol, dFluxT) = extractBandPolarityAndFluxAxis ax axisT tLo tHi dPol
-      qpBox             = bandPol .*. bandPol
-      accQPol           = unwrapBox (totalMassBox qpBox)
-      momentMSet        = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
-      wX                = lookupKeyHMSet (axisNat 0) momentMSet
-      wT                = lookupKeyHMSet axisT momentMSet
-      accFlux           = unwrapBox (bandPol <.> (contractRBox dFluxT <+> contractLBox dFluxT))
-      mxM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wX * 1000) accQPol)
-      mtM               = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wT * 1000) accQPol)
-      net               = statePolarityNet st + stateFluxNet st
+  let dPol       = subM st.polarityMaxel bgSt.polarityMaxel
+      stepT      = ax.axisStep axisT
+      bandPol    = filterBox (\a => let t = coordAlong ax axisT a in t >= tLo && t <= tHi) (diagBox dPol)
+      dFluxT     = filterMaxel (\x, y => y == combine x stepT) (toGeneralMaxel (offDiagMaxel dPol))
+      qpBox      = bandPol .*. bandPol
+      accQPol    = unwrapBox (totalMassBox qpBox)
+      momentMSet = flattenHMSetBox (mapBox ax.toSiteMSet qpBox)
+      wX         = lookupKeyHMSet (axisNat 0) momentMSet
+      wT         = lookupKeyHMSet axisT momentMSet
+      accFlux    = unwrapBox (bandPol <.> (contractRMaxel dFluxT <+> contractLMaxel dFluxT))
+      mxM        = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wX * 1000) accQPol)
+      mtM        = if accQPol == 0 then 0 else unwrapBox (tdivPosBox (wT * 1000) accQPol)
+      net        = statePolarityNet st + stateFluxNet st
   in MkExcitationReport mxM mtM accFlux initQ finalQ maxQ net workSteps
 
-public export
-inBoxRange : AxisBasis k -> (xLo, xHi, yLo, yHi : Integer) -> k -> Bool
-inBoxRange ax xLo xHi yLo yHi pos =
-  let x = coordAlong ax (axisNat 0) pos
-      y = coordAlong ax (axisNat 1) pos
-  in x >= xLo && x <= xHi && y >= yLo && y <= yHi
-
 ||| Bit-for-bit check that `(st - bgSt)` matches `vacSt` identically on every polarity entry
-||| inside `[xLo..xHi] x [yLo..yHi]` (confirming zero action-at-a-distance outside the `c = 1` cone).
+||| inside the hyperbox `[lo..hi]` (confirming zero action-at-a-distance outside the `c = 1` cone).
 public export
 bandsEqualInBox :
+  {n : Nat} ->
   Ord k =>
   AxisBasis k ->
-  (xLo, xHi, yLo, yHi : Integer) ->
+  (lo, hi : Space n) ->
   (st, bgSt, vacSt : EvolutionState k) ->
   Bool
-bandsEqualInBox ax xLo xHi yLo yHi st bgSt vacSt =
-  let fltP = filterMaxel (\a, b => inBoxRange ax xLo xHi yLo yHi a &&
-                                   inBoxRange ax xLo xHi yLo yHi b)
-  in fltP (subMaxel st.polarityMaxel bgSt.polarityMaxel) == fltP vacSt.polarityMaxel
+bandsEqualInBox ax lo hi st bgSt vacSt =
+  let fltP = filterMaxel (\a, b => inSpaceBox ax lo hi a && inSpaceBox ax lo hi b)
+  in fltP (subM st.polarityMaxel bgSt.polarityMaxel) == fltP vacSt.polarityMaxel
 
-||| Plus-mode quadrupole polarization of `loadM`:
-||| `sum_{a} L(a, a + step_X) - sum_{a} L(a, a + step_Y)`.
+||| Quadrupole polarization between axes `axA` and `axB`:
+||| `sum_{a} L(a, a + step_A) - sum_{a} L(a, a + step_B)`.
 public export
-loadQuadrupolePlus : Ord k => AxisBasis k -> Maxel BoxInt k k SymForm -> Integer
-loadQuadrupolePlus ax loadM =
-  let sX = ax.axisStep (axisNat 0)
-      sY = ax.axisStep (axisNat 1)
+loadQuadrupoleAxes : GroupCoord k => AxisBasis k -> (axA, axB : PureMultiset) -> Maxel BoxInt k k SymForm -> Integer
+loadQuadrupoleAxes ax axA axB loadM =
+  let sA = ax.axisStep axA
+      sB = ax.axisStep axB
   in foldStoredMaxel
        (\a, b, (MkBoxInt w), acc =>
-          case canonLinkStart ax sX a b of
+          case canonLinkStart sA a b of
             Just _  => acc + w
-            Nothing => case canonLinkStart ax sY a b of
+            Nothing => case canonLinkStart sB a b of
                          Just _  => acc - w
                          Nothing => acc)
        0 loadM
