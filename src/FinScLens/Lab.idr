@@ -79,7 +79,7 @@ record BlackBoxLab (e : List Error) (box : Type) (k : Type) where
   labBasis     : AxisBasis k
   labBoot      : App1 e box
   labInject    : EvolutionState k -> (1 u : box) -> App1 e box
-  labStepMode  : StepMode -> (1 u : box) -> App1 e box
+  labStepSteps : StepMode -> Nat -> (1 u : box) -> App1 e box
   labQuadrance : (1 u : box) -> App1 e (PureObservation u BoxInt)
   labStepTel   : (1 u : box) -> App1 e (PureObservation u StepTel)
   labEndAudit  : (1 u : box) -> App1 {u = Any} e (EndAudit k)
@@ -117,7 +117,7 @@ flatLab =
     spaceBasis
     (bootFlatWith spaceBasis)
     injectFlatState
-    (\mode => stepFlatWith (canonDynamicsParams mode))
+    (\mode, steps => stepFlatStepsWith steps (canonDynamicsParams mode))
     (observeFlatPure stateQuadrance)
     (observeFlatPure (\st => MkStepTel (stateQuadrance st) (stateActiveWork st) True))
     flatEndAudit
@@ -129,7 +129,7 @@ hereditaryLab minDim =
     (pureMSetBasis minDim)
     bootHereditary0D
     injectHereditaryState
-    (\mode => stepHereditaryWith minDim (canonDynamicsParams mode))
+    (\mode, steps => stepHereditaryStepsWith minDim steps (canonDynamicsParams mode))
     (observeHereditaryPure (\r => stateQuadrance (unpackRootToEvolutionState r).stateData))
     (observeHereditaryPure (\r => MkStepTel (stateQuadrance (unpackRootToEvolutionState r).stateData)
                                             (rootActivePeelWork r)
@@ -143,10 +143,10 @@ runLabFieldSteps :
   Nat ->
   (1 u : box) ->
   App1 {u = Any} e (EndAudit k)
-runLabFieldSteps lab _    Z       u = lab.labEndAudit u
-runLabFieldSteps lab mode (S rem) u = App1.do
-  u1 <- lab.labStepMode mode u
-  runLabFieldSteps lab mode rem u1
+runLabFieldSteps lab _    Z     u = lab.labEndAudit u
+runLabFieldSteps lab mode steps u = App1.do
+  u1 <- lab.labStepSteps mode steps u
+  lab.labEndAudit u1
 
 export
 bootInjectAndRun :
@@ -174,7 +174,7 @@ driveLabStepsTel lab _ Z u maxQ accWork balOk = App1.do
   ea <- lab.labEndAudit u
   App1.pure (ea, maxQ, accWork, balOk && ea.eaBalOk)
 driveLabStepsTel lab mode (S rem) u maxQ accWork balOk = App1.do
-  u1  <- lab.labStepMode mode u
+  u1  <- lab.labStepSteps mode 1 u
   obs <- lab.labStepTel u1
   let MkPureObs u2 tel _ = obs
   let nextMax = if tel.stQuad > maxQ then tel.stQuad else maxQ
